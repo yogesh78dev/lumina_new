@@ -1,0 +1,5 @@
+{
+  "name": "Crm Lumina Infotech yogesh Upgrade",
+  "description": "A dynamic CRM for travel agencies powered by a MySQL backend. Manages leads, customers, team chat, and invoices in a fully responsive interface with real-time-ish capabilities and comprehensive master data configuration.",
+  "requestFramePermissions": []
+}

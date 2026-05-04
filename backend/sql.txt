@@ -1,0 +1,541 @@
+
+-- Database creation
+CREATE DATABASE IF NOT EXISTS lumina_crm;
+USE lumina_crm;
+
+-- 1. Roles Table
+CREATE TABLE roles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    permissions JSON NOT NULL,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 2. Users Table
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL, -- Long enough for bcrypt
+    role_id INT,
+    role_name VARCHAR(100),
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    image_url MEDIUMTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE SET NULL
+);
+
+-- 3. Lead Configuration (Master Data)
+CREATE TABLE lead_sources (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE lead_statuses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE application_statuses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE passport_statuses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE document_types (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE remark_statuses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE service_types (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE lost_reasons (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 4. Customization Entities
+CREATE TABLE sale_by (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE worked_by (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 5. Vendors
+CREATE TABLE vendors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 6. Leads
+CREATE TABLE leads (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100),
+    service VARCHAR(255),
+    country VARCHAR(100),
+    lead_source VARCHAR(100),
+    lead_status VARCHAR(100),
+    application_status VARCHAR(100),
+    passport_status VARCHAR(100),
+    company_name VARCHAR(255),
+    location VARCHAR(255),
+    assigned_to_id INT,
+    last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (assigned_to_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- 7. Lead Activity & Metadata
+CREATE TABLE lead_notes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    lead_id INT NOT NULL,
+    content TEXT NOT NULL,
+    author_id INT,
+    author_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
+    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE lead_reminders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    lead_id INT NOT NULL,
+    note TEXT NOT NULL,
+    due_date DATETIME NOT NULL,
+    is_completed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+);
+
+CREATE TABLE lead_documents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    lead_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    status ENUM('Pending', 'Uploaded', 'Verified', 'Rejected') DEFAULT 'Pending',
+    file_name VARCHAR(255),
+    file_type VARCHAR(100),
+    file_data LONGTEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+);
+
+-- 8. Customers
+CREATE TABLE customers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id_string VARCHAR(50) UNIQUE NOT NULL, -- User-defined ID like CUST-101
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100),
+    country VARCHAR(100),
+    company_name VARCHAR(255),
+    gst_number VARCHAR(50),
+    location VARCHAR(255),
+    vendor_id INT,
+    sale_by_id INT,
+    service_type VARCHAR(255),
+    close_date DATE,
+    action TEXT,
+    passport_status VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE SET NULL,
+    FOREIGN KEY (sale_by_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- 9. Invoices
+CREATE TABLE invoices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    amount DECIMAL(15, 2) NOT NULL,
+    issued_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    due_date DATE NOT NULL,
+    status ENUM('Paid', 'Sent', 'Overdue', 'Draft') DEFAULT 'Draft',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+);
+
+-- 10. Chat & Messaging
+CREATE TABLE chat_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sender_id INT NOT NULL,
+    receiver_id INT NOT NULL,
+    content TEXT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users(id),
+    FOREIGN KEY (receiver_id) REFERENCES users(id)
+);
+
+CREATE TABLE whatsapp_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    lead_id INT NOT NULL,
+    content TEXT NOT NULL,
+    type ENUM('incoming', 'outgoing') NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+);
+
+CREATE TABLE emails (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    lead_id INT NOT NULL,
+    sender_email VARCHAR(255) NOT NULL,
+    receiver_email VARCHAR(255) NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    body TEXT NOT NULL,
+    type ENUM('incoming', 'outgoing') NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+);
+
+-- 11. Call Logs
+CREATE TABLE call_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    lead_id INT NOT NULL,
+    user_id INT NOT NULL,
+    call_sid VARCHAR(255),
+    status ENUM('initiated', 'ringing', 'connected', 'failed', 'completed', 'no-answer', 'busy', 'canceled') DEFAULT 'initiated',
+    direction ENUM('outbound', 'inbound') DEFAULT 'outbound',
+    duration INT DEFAULT 0, -- in seconds
+    recording_url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 12. Quotes
+CREATE TABLE quotes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    lead_id INT NOT NULL,
+    quote_number VARCHAR(50) UNIQUE NOT NULL,
+    valid_until DATE NOT NULL,
+    status ENUM('Draft', 'Sent', 'Accepted', 'Rejected') DEFAULT 'Draft',
+    subtotal DECIMAL(15, 2) NOT NULL,
+    tax DECIMAL(5, 2) DEFAULT 0,
+    total DECIMAL(15, 2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+);
+
+CREATE TABLE quote_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    quote_id INT NOT NULL,
+    description TEXT NOT NULL,
+    quantity INT DEFAULT 1,
+    price DECIMAL(15, 2) NOT NULL,
+    total DECIMAL(15, 2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (quote_id) REFERENCES quotes(id) ON DELETE CASCADE
+);
+
+-- 12. Security & Notifications
+CREATE TABLE notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    link_to VARCHAR(255),
+    icon VARCHAR(100),
+    icon_color VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE system_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    user_name VARCHAR(100),
+    role_name VARCHAR(50),
+    title VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE user_activity_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    login_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    logout_date TIMESTAMP NULL,
+    status ENUM('Logged In', 'Logged Out') DEFAULT 'Logged In',
+    location VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE permission_categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE permission_sections (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    category VARCHAR(255) NOT NULL,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 13. Data Management
+CREATE TABLE imported_files (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    file_name VARCHAR(255) NOT NULL,
+    total_records INT DEFAULT 0,
+    module ENUM('Lead', 'Contact') NOT NULL,
+    added_by_id INT,
+    added_by_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (added_by_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE duplicate_leads (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    lead_id INT NOT NULL,
+    duplicate_field VARCHAR(50),
+    duplicate_value VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+);
+
+CREATE TABLE targets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    target_amount DECIMAL(15, 2) NOT NULL,
+    achieve_amount DECIMAL(15, 2) DEFAULT 0,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    module ENUM('Lead', 'Sales') NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE target_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    module VARCHAR(50) NOT NULL,
+    created_by_id INT,
+    created_by_name VARCHAR(100),
+    target_amount DECIMAL(15, 2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE export_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    module VARCHAR(100) NOT NULL,
+    exported_by_id INT,
+    record_count INT DEFAULT 0,
+    status ENUM('Pending', 'Completed', 'Failed') DEFAULT 'Pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (exported_by_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- 14. Settings (Single Row Configuration Tables)
+CREATE TABLE company_details (
+    id INT PRIMARY KEY DEFAULT 1,
+    company_name VARCHAR(255),
+    address TEXT,
+    city VARCHAR(100),
+    state VARCHAR(100),
+    country VARCHAR(100),
+    pincode VARCHAR(20),
+    from_name VARCHAR(100),
+    from_email VARCHAR(100),
+    reply_name VARCHAR(100),
+    reply_email VARCHAR(100),
+    help_email VARCHAR(100),
+    info_email VARCHAR(100),
+    phone VARCHAR(20),
+    secondary_phone VARCHAR(20),
+    instagram_link VARCHAR(255),
+    facebook_link VARCHAR(255),
+    twitter_link VARCHAR(255),
+    linkedin_link VARCHAR(255),
+    website VARCHAR(255),
+    gst_no VARCHAR(50),
+    timezone VARCHAR(100),
+    date_format VARCHAR(20),
+    currency VARCHAR(10),
+    logo_url MEDIUMTEXT,
+    favicon_url MEDIUMTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE email_api_credentials (
+    id INT PRIMARY KEY DEFAULT 1,
+    api_name VARCHAR(100),
+    api_url VARCHAR(255),
+    api_key VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE mobile_api_credentials (
+    id INT PRIMARY KEY DEFAULT 1,
+    api_name VARCHAR(100),
+    from_number VARCHAR(20),
+    sid VARCHAR(255),
+    token VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE payment_gateway_settings (
+    id INT PRIMARY KEY DEFAULT 1,
+    gateway_name VARCHAR(100),
+    api_key VARCHAR(255),
+    api_secret VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 15. Automation & Announcements
+CREATE TABLE workflow_rules (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    trigger_module VARCHAR(50) DEFAULT 'Lead',
+    trigger_event VARCHAR(50) DEFAULT 'updated',
+    conditions JSON NOT NULL,
+    action_type VARCHAR(50) NOT NULL,
+    action_details JSON NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE announcements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    subject VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    recipients JSON NOT NULL, -- Array of user IDs
+    scheduled_at DATETIME NOT NULL,
+    author_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- SEED DATA
+
+-- Essential Roles
+INSERT INTO roles (name, permissions, status) VALUES 
+('Super Admin', '{"leads": ["create", "read", "update", "delete"], "customers": ["create", "read", "update", "delete"], "invoices": ["create", "read", "update", "delete"], "reminders": ["create", "read", "update", "delete"], "users": ["create", "read", "update", "delete"], "roles": ["create", "read", "update", "delete"], "settings": ["create", "read", "update", "delete"], "vendors": ["create", "read", "update", "delete"], "workflows": ["create", "read", "update", "delete"]}', 'Active'),
+('Sales Agent', '{"leads": ["create", "read", "update"], "customers": ["create", "read", "update"], "invoices": ["read"], "reminders": ["create", "read", "update"]}', 'Active');
+
+-- Initial Users
+INSERT INTO users (name, username, email, password, role_id, role_name, status) VALUES 
+('Super Admin', 'admin', 'admin@luminacrm.com', 'password123', 1, 'Super Admin', 'Active'),
+('Jyoti Sharma', 'jyoti.sharma', 'jyoti.sharma@theglobalvisa.in', 'password123', 2, 'Sales Agent', 'Active');
+
+-- Master Data
+INSERT INTO lead_sources (name) VALUES ('Google'), ('IVR'), ('Website Inquiry'), ('Social Media'), ('Walk-In'), ('Direct/Rep'), ('Agent');
+INSERT INTO lead_statuses (name) VALUES ('New Lead'), ('Follow-up'), ('Won'), ('Lost');
+INSERT INTO application_statuses (name) VALUES ('Documents Pending'), ('Documents Collected'), ('Application Lodged'), ('Visa Approved'), ('Visa Rejected');
+INSERT INTO passport_statuses (name) VALUES ('With Client'), ('With Agency'), ('Submitted to Embassy'), ('Dispatched to Client');
+INSERT INTO document_types (name) VALUES ('Passport Copy'), ('Photograph'), ('Bank Statement'), ('Flight Itinerary'), ('Hotel Booking');
+INSERT INTO remark_statuses (name) VALUES ('RNR'), ('Call Back Later'), ('Not Interested'), ('Interested'), ('Switch Off');
+INSERT INTO service_types (name) VALUES ('Visa'), ('Flight'), ('Hotel'), ('Holiday Package'), ('Travel Insurance');
+INSERT INTO lost_reasons (name) VALUES ('Price too high'), ('Competitor'), ('Changed Plans'), ('Visa Rejected'), ('No Response');
+
+-- Customization Seeds
+INSERT INTO sale_by (name, status) VALUES ('JYOTI', 'Active'), ('VARUN', 'Active');
+INSERT INTO worked_by (name, status) VALUES ('JYOTI', 'Active'), ('VARUN', 'Active');
+
+-- Configuration Initializations (Critical for Update Routes)
+INSERT INTO permission_categories (title, status) VALUES 
+('CRM Modules', 'Active'), ('Communication', 'Active'), ('Settings', 'Active');
+
+INSERT INTO permission_sections (title, category, status) VALUES 
+('Dashboard', 'CRM Modules', 'Active'), ('Leads', 'CRM Modules', 'Active'), 
+('Customers', 'CRM Modules', 'Active'), ('Invoices', 'CRM Modules', 'Active'),
+('Vendors', 'CRM Modules', 'Active'), ('Notes', 'Communication', 'Active'),
+('Reminders', 'Communication', 'Active'), ('Chat', 'Communication', 'Active'),
+('Call Logs', 'Communication', 'Active'), ('WhatsApp', 'Communication', 'Active'),
+('Email', 'Communication', 'Active'), ('User Management', 'Settings', 'Active'),
+('Role Management', 'Settings', 'Active'), ('Company Profile', 'Settings', 'Active'),
+('API Status', 'Settings', 'Active');
+
+INSERT INTO company_details (id, company_name, address, city, state, country, pincode, from_name, from_email, timezone, date_format, currency) 
+VALUES (1, 'Lumina travels', '123 Travel Lane', 'New Delhi', 'Delhi', 'India', '110001', 'Lumina Support', 'support@luminatravels.com', '(GMT+05:30) India Standard Time (Asia/Kolkata)', 'dd-mm-yyyy', 'INR');
+
+INSERT INTO email_api_credentials (id, api_name, api_url, api_key) 
+VALUES (1, 'SendGrid', 'https://api.sendgrid.com/v3/mail/send', 'SG.default_key');
+
+INSERT INTO mobile_api_credentials (id, api_name, from_number, sid, token) 
+VALUES (1, 'Twilio', '+1234567890', 'AC_default_sid', 'default_token');
+
+INSERT INTO payment_gateway_settings (id, gateway_name, api_key, api_secret) 
+VALUES (1, 'Razorpay', 'rzp_test_default', 'default_secret');
