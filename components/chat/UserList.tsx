@@ -16,19 +16,17 @@ const UserList: React.FC<UserListProps> = ({ onSelectUser }) => {
     if (!currentUser) return null;
 
     const otherUsers = users.filter(user => String(user.id) !== String(currentUser.id));
-
-    // Mock Online Status logic (Random for demo, would be real-time in prod)
+    
+    // Mock Online Status logic (Consistent with Conversation.tsx)
     const isOnline = (userId: string | number) => {
-        // Simple hash to keep status consistent per user session
         const userIdStr = String(userId);
-        const hash = userIdStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        return hash % 2 === 0; 
+        const hash = userIdStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 2);
+        return hash % 2 === 0;
     };
 
     const filteredConversations = useMemo(() => {
         let conversationList = otherUsers.map(user => ({
             user,
-            // FIX line 29, 30, 31: cast user.id to string
             lastMessage: getLastMessageForUser(String(user.id)),
             unreadCount: getUnreadMessageCountForUser(String(user.id)),
             online: isOnline(String(user.id))

@@ -181,7 +181,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const pollId = setInterval(() => {
         fetchChatMessages();
         fetchNotifications();
-    }, 10000); // 10s is sufficient for "live-ish" updates
+    }, 7000); // 7s for better real-time feel
     return () => clearInterval(pollId);
   }, [currentUser, fetchChatMessages, fetchNotifications]);
 

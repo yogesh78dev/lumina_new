@@ -1,20 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useCrm } from '../../hooks/useCrm';
 import ChatPanel from './ChatPanel';
 
 const ChatWidget: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const { getTotalUnreadMessages, currentUser } = useCrm();
-    const [unreadCount, setUnreadCount] = useState(0);
+    const { pathname } = useLocation();
 
-    useEffect(() => {
-        // Poll for unread messages to update the badge, as localStorage doesn't trigger re-renders
-        const interval = setInterval(() => {
-            setUnreadCount(getTotalUnreadMessages());
-        }, 1000); // Check every second
+    const unreadCount = getTotalUnreadMessages();
+    const isChatPage = pathname === '/chat';
 
-        return () => clearInterval(interval);
-    }, [getTotalUnreadMessages, currentUser]);
+    if (isChatPage) return null;
 
     return (
         <>
@@ -33,7 +30,7 @@ const ChatWidget: React.FC = () => {
                 </button>
             </div>
             <div 
-                className={`fixed bottom-28 right-8 z-50 w-[360px] h-[500px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col transition-all duration-500 ease-in-out ${
+                className={`fixed bottom-28 right-4 sm:right-8 z-50 w-[calc(100vw-32px)] sm:w-[360px] h-[450px] sm:h-[500px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col transition-all duration-500 ease-in-out ${
                     isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'
                 }`}
             >

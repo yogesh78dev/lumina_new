@@ -16,7 +16,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ onClose }) => {
 
     useEffect(() => {
         if (selectedUser) {
-            // FIX line 18: cast selectedUser.id to string
             markMessagesAsRead(String(selectedUser.id));
         }
     }, [selectedUser, markMessagesAsRead]);

@@ -16,6 +16,7 @@ import QuoteBuilderModal from '../quotes/QuoteBuilderModal';
 import { generateAvatar } from '../../utils/avatar';
 import CommandPalette from '../common/CommandPalette';
 import Tooltip from '../common/Tooltip';
+import ChatWidget from '../chat/ChatWidget';
 
 const getTitleFromPathname = (pathname: string): string => {
   if (pathname === '/') return 'Dashboard';
@@ -106,8 +107,8 @@ const SidebarContent: React.FC<{
         navigate('/login');
     }
 
-    const logoUrl = companyDetails?.logoUrl || (isCollapsed ? "https://www.luminainfotech.com/assets/img/favicon/apple-touch-icon.png" : "https://www.luminainfotech.com/assets/img/logo-light.svg");
-    const faviconUrl = companyDetails?.faviconUrl || "https://www.luminainfotech.com/assets/img/favicon/apple-touch-icon.png";
+    const logoUrl = companyDetails?.logoUrl || (isCollapsed ? "https://www.luminainfotech.in/assets/img/favicon/apple-touch-icon.png" : "https://www.luminainfotech.in/assets/img/logo-light.svg");
+    const faviconUrl = companyDetails?.faviconUrl || "https://www.luminainfotech.in/assets/img/favicon/apple-touch-icon.png";
 
     useEffect(() => {
         if (companyDetails?.faviconUrl) {
@@ -186,8 +187,9 @@ const Layout: React.FC = () => {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationPanelRef = useRef<HTMLDivElement>(null);
-  const [unreadChatCount, setUnreadChatCount] = useState(0);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
+  const unreadChatCount = getTotalUnreadMessages();
+  const unreadNotificationCount = getUnreadNotificationCount();
 
   const showGlobalCreateButton = location.pathname !== '/leads';
 
@@ -215,20 +217,6 @@ const Layout: React.FC = () => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  useEffect(() => {
-    const chatInterval = setInterval(() => {
-      setUnreadChatCount(getTotalUnreadMessages());
-    }, 1000);
-    const notificationInterval = setInterval(() => {
-        setUnreadNotificationCount(getUnreadNotificationCount());
-    }, 1000);
-    return () => {
-        clearInterval(chatInterval);
-        clearInterval(notificationInterval);
-    };
-  }, [getTotalUnreadMessages, getUnreadNotificationCount, currentUser]);
-
 
   const handleLogout = () => {
     logout();
@@ -476,6 +464,7 @@ const Layout: React.FC = () => {
       />
       {isQuoteBuilderOpen && <QuoteBuilderModal />}
       <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
+      <ChatWidget />
       
       <style>{`
         .thin-scrollbar::-webkit-scrollbar { width: 6px; }

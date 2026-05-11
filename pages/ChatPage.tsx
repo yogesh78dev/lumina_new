@@ -13,7 +13,6 @@ const ChatPage: React.FC = () => {
 
     useEffect(() => {
         if (selectedUser) {
-            // FIX: Cast selectedUser.id to string to match markMessagesAsRead expected parameter type
             markMessagesAsRead(String(selectedUser.id));
         }
     }, [selectedUser, markMessagesAsRead]);

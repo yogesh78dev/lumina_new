@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useCrm } from '../../hooks/useCrm';
 import { User, ChatMessage } from '../../types';
 import { generateAvatar } from '../../utils/avatar';
@@ -35,7 +35,13 @@ const Conversation: React.FC<ConversationProps> = ({ contact }) => {
     
     // Messages are now reactively derived from the context
     const messages = getMessagesWithUser(String(contact.id));
-    const isOnline = String(contact.id).charCodeAt(0) % 2 === 0;
+    
+    // Consistent mock online status logic
+    const isOnline = useMemo(() => {
+        const userIdStr = String(contact.id);
+        const hash = userIdStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 2);
+        return hash % 2 === 0;
+    }, [contact.id]);
 
     // Scroll to bottom when messages update
     useEffect(() => {
