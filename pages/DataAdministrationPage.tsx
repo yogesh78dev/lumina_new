@@ -70,6 +70,9 @@ const ImportDataContent: React.FC = () => {
             fireToast('success', 'Data import started. Check history for results.');
             setFile(null);
             setFileName('');
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         } catch (err) {
             fireToast('error', 'Import failed.');
         } finally {

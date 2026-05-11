@@ -32,17 +32,15 @@ const VendorsPage: React.FC = () => {
     totalItems
   } = usePagination(sortedVendors, 10);
 
-  const handleDelete = async (id: string | number, name: string) => {
+    const handleDelete = async (id: string | number, name: string) => {
     const associatedCustomersCount = customers.filter(c => String(c.vendorId) === String(id)).length;
-    let html: React.ReactNode = <>Are you sure you want to delete the vendor "<strong>{name}</strong>"? This action cannot be undone.</>;
+    let html = `Are you sure you want to delete the vendor "<strong>${name}</strong>"? This action cannot be undone.`;
 
     if (associatedCustomersCount > 0) {
-      html = (
-        `
+      html = `
           <p>This vendor is currently assigned to <strong>${associatedCustomersCount} customer(s)</strong>.</p>
           <p class="mt-2 text-sm text-gray-500">Deleting "<strong>${name}</strong>" will leave these customer records without an assigned vendor. Are you sure you want to proceed?</p>
-        `
-      );
+        `;
     }
     
     const result = await confirmDelete({

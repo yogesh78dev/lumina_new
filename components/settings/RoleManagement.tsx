@@ -8,9 +8,10 @@ import Pagination from '../common/Pagination';
 import { Role } from '../../types';
 import { useSorting } from '../../hooks/useSorting';
 import Tooltip from '../common/Tooltip';
+import ToggleSwitch from '../common/ToggleSwitch';
 
 const RoleManagement: React.FC = () => {
-  const { roles, openRoleModal, deleteRole } = useCrm();
+  const { roles, openRoleModal, deleteRole, updateRole } = useCrm();
   const permissions = usePermissions();
   const { confirmDelete, fireToast } = useSwal();
   
@@ -32,15 +33,20 @@ const RoleManagement: React.FC = () => {
     totalItems
   } = usePagination(sortedRoles, 10);
 
+  const isSystemRole = (role: Role) => {
+    const roleName = (role.name || '').toLowerCase();
+    return String(role.id) === '1' || roleName === 'super admin' || roleName === 'admin';
+  };
+
   const handleDelete = async (role: Role) => {
-    if (String(role.id) === '1' || role.name.toLowerCase() === 'super admin') {
-        fireToast('error', 'The Super Admin role is system-protected and cannot be deleted.');
+    if (isSystemRole(role)) {
+        fireToast('error', 'Administrative roles essential for system integrity cannot be deleted.');
         return;
     }
 
     const result = await confirmDelete({
         title: 'Delete Role?',
-        html: <>Are you sure you want to delete the role "<strong>{role.name}</strong>"? Users assigned to this role will lose their current permissions.</>,
+        html: `Are you sure you want to delete the role "<strong>${role.name}</strong>"? Users assigned to this role will lose their current permissions.`,
     });
 
     if (result) {
@@ -53,8 +59,11 @@ const RoleManagement: React.FC = () => {
     }
   }
 
-  const isSystemRole = (role: Role) => {
-      return String(role.id) === '1' || role.name.toLowerCase() === 'super admin';
+  const handleToggleStatus = async (role: Role) => {
+    if (!canUpdate || isSystemRole(role)) return;
+    const newStatus = role.status === 'Active' ? 'Inactive' : 'Active';
+    await updateRole({ ...role, status: newStatus });
+    fireToast('success', `Role status updated to ${newStatus}`);
   };
 
   return (
@@ -115,9 +124,16 @@ const RoleManagement: React.FC = () => {
                         </div>
                     </td>
                     <td className="p-4 whitespace-nowrap">
-                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${role.status === 'Active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                            {role.status || 'Active'}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                             <ToggleSwitch
+                                checked={role.status === 'Active'}
+                                onChange={() => handleToggleStatus(role)}
+                                disabled={!canUpdate || isProtected}
+                            />
+                            <span className={`text-xs font-bold ${role.status === 'Active' ? 'text-green-700' : 'text-red-700'}`}>
+                                {role.status || 'Active'}
+                            </span>
+                        </div>
                     </td>
                     {(canUpdate || canDelete) && (
                         <td className="p-4 whitespace-nowrap text-sm font-medium">

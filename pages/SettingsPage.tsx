@@ -29,9 +29,9 @@ const settingsConfig = [
         name: 'Configuration',
         items: [
              { id: 'crm-config', name: 'Master Data', icon: 'ri-database-2-line' },
-             { id: 'workflow', name: 'Workflow Automation', icon: 'ri-command-line' },
+            //  { id: 'workflow', name: 'Workflow Automation', icon: 'ri-command-line' },
              { id: 'announcements', name: 'Announcements', icon: 'ri-notification-3-line' },
-             { id: 'payment-gateway', name: 'Payment Gateway', icon: 'ri-bank-card-line' },
+            //  { id: 'payment-gateway', name: 'Payment Gateway', icon: 'ri-bank-card-line' },
         ]
     },
     {
@@ -39,7 +39,7 @@ const settingsConfig = [
         items: [
             { id: 'users', name: 'Users', icon: 'ri-user-line' },
             { id: 'roles', name: 'Roles', icon: 'ri-shield-user-line' },
-            { id: 'security', name: 'Security Controls', icon: 'ri-lock-password-line' },
+            // { id: 'security', name: 'Security Controls', icon: 'ri-lock-password-line' },
             { id: 'system-log', name: 'System Logs', icon: 'ri-history-line' },
         ]
     },

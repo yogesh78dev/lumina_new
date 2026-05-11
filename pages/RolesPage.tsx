@@ -28,16 +28,27 @@ const RolesPage: React.FC = () => {
     totalItems
   } = usePagination(roles, 10);
 
-  const handleDelete = async (id: string | number, name: string) => {
+  const handleDelete = async (role: Role) => {
+    const roleName = (role.name || '').toLowerCase();
+    const isProtected = String(role.id) === '1' || roleName === 'super admin' || roleName === 'admin';
+    
+    if (isProtected) {
+        fireToast('error', 'Administrative roles essential for system integrity cannot be deleted.');
+        return;
+    }
+
     const result = await confirmDelete({
         title: 'Delete Role?',
-        html: <>Are you sure you want to delete the role "<strong>{name}</strong>"? This action cannot be undone.</>,
+        html: `Are you sure you want to delete the role "<strong>${role.name}</strong>"? This action cannot be undone.`,
     });
 
     if (result) {
-      // Fix line 71: cast id to string
-      deleteRole(String(id));
-      fireToast('success', `Role "${name}" deleted successfully.`);
+      try {
+        await deleteRole(String(role.id));
+        fireToast('success', `Role "${role.name}" deleted successfully.`);
+      } catch (err: any) {
+        fireToast('error', err.message || 'Failed to delete role.');
+      }
     }
   }
 
@@ -70,7 +81,7 @@ const RolesPage: React.FC = () => {
                   {(canUpdate || canDelete) && (
                     <td className="p-4 whitespace-nowrap text-sm font-medium space-x-4">
                         {canUpdate && <button onClick={() => openRoleModal(role)} className="text-primary hover:text-primary/90">Edit</button>}
-                        {canDelete && <button onClick={() => handleDelete(role.id, role.name)} className="text-gray-500 hover:text-gray-700">Delete</button>}
+                        {canDelete && <button onClick={() => handleDelete(role)} className="text-gray-500 hover:text-gray-700">Delete</button>}
                     </td>
                   )}
                 </tr>

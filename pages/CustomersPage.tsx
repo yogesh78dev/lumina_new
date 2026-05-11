@@ -37,7 +37,7 @@ const CustomersPage: React.FC = () => {
   const handleDelete = async (id: string | number, name: string) => {
     const result = await confirmDelete({
       title: 'Delete Customer?',
-      html: <>Are you sure you want to delete customer "<strong>{name}</strong>"? This action cannot be undone.</>,
+      html: `Are you sure you want to delete customer "<strong>${name}</strong>"? This action cannot be undone.`,
     });
 
     if (result) {

@@ -7,7 +7,7 @@ type ToastIcon = 'success' | 'error' | 'warning' | 'info' | 'question';
 
 interface ConfirmOptions {
     title: string;
-    html: ReactNode | string; // Allow JSX or string
+    html: string; // Only allow strings as per SweetAlert2 recommendation for HTML content
     confirmButtonText?: string;
 }
 

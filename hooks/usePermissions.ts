@@ -3,7 +3,7 @@ import { useCrm } from './useCrm';
 import { ModuleName, PermissionAction } from '../types';
 
 export const usePermissions = () => {
-    const { currentUser } = useCrm();
+    const { currentUser, roles } = useCrm();
     
     const can = (module: ModuleName, action: PermissionAction): boolean => {
         if (!currentUser) {
@@ -17,23 +17,26 @@ export const usePermissions = () => {
             return true;
         }
 
-        // 2. Direct Permission Check
-        const rawPermissions = (currentUser as any).permissions;
-
-        if (!rawPermissions) {
-            return false;
+        // 2. Look up permissions from the associated role
+        const userRole = roles.find(r => String(r.id) === String(currentUser.roleId));
+        
+        if (!userRole || !userRole.permissions) {
+            // Fallback to direct permissions on user if role not found (legacy or special cases)
+            const rawPermissions = (currentUser as any).permissions;
+            if (!rawPermissions) return false;
+            
+            let permissions: any = {};
+            try {
+                permissions = typeof rawPermissions === 'string' ? JSON.parse(rawPermissions) : rawPermissions;
+            } catch (e) {
+                return false;
+            }
+            const modulePerms = permissions[module];
+            return Array.isArray(modulePerms) && modulePerms.includes(action);
         }
 
-        // 3. Robust Data Parsing
-        let permissions: any = {};
-        try {
-            permissions = typeof rawPermissions === 'string' ? JSON.parse(rawPermissions) : rawPermissions;
-        } catch (e) {
-            console.error("[Permissions] Critical: Invalid format for user permissions set.", rawPermissions);
-            return false;
-        }
-
-        // 4. Module-specific evaluation
+        // 3. Module-specific evaluation from Role
+        const permissions = userRole.permissions as any;
         const modulePerms = permissions[module];
         
         if (!modulePerms || !Array.isArray(modulePerms)) {

@@ -28,12 +28,24 @@ exports.importLeads = async (req, res) => {
             // Basic validation
             if (!lead.name || !lead.phone) continue;
 
+            let phone = String(lead.phone).trim();
+
+            // Convert scientific notation
+            if (phone.includes('E+') || phone.includes('e+')) {
+                phone = Number(phone).toLocaleString('fullwide', {
+                    useGrouping: false
+                });
+            }
+
+            // Remove spaces
+            phone = phone.replace(/\s+/g, '')
+
             const [result] = await connection.execute(
                 `INSERT INTO leads (name, phone, email, service, country, lead_source, lead_status, assigned_to_id) 
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     lead.name, 
-                    lead.phone, 
+                    phone, 
                     lead.email || null, 
                     lead.service || defaults.service || null,
                     lead.country || defaults.country || 'India',

@@ -455,7 +455,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const closeRoleModal = useCallback(() => setIsRoleModalOpen(false), []);
   const addRole = useCallback(async (data: any) => { await api.users.createRole(data); await fetchData(); }, [fetchData]);
   const updateRole = useCallback(async (data: Role) => { await api.users.updateRole(data.id, data); await fetchData(); }, [fetchData]);
-  const deleteRole = useCallback(async (id: any) => { await api.users.delete(id); await fetchData(); }, [fetchData]);
+  const deleteRole = useCallback(async (id: any) => { await api.users.deleteRole(id); await fetchData(); }, [fetchData]);
 
   const getQuotesForLead = useCallback((leadId: any) => quotes.filter(q => String(q.leadId) === String(leadId)), [quotes]);
   const openQuoteBuilder = useCallback((leadId: any, quote?: Quote | null) => { setCurrentLeadIdForQuote(String(leadId)); setEditingQuote(quote || null); setIsQuoteBuilderOpen(true); }, []);

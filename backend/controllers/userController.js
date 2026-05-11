@@ -5,7 +5,14 @@ const { logAction } = require('../utils/logger');
 
 exports.getAllUsers = async (req, res) => {
     try {
-        const [rows] = await db.execute('SELECT id, name, username, email, role_id as roleId, role_name as role, status, image_url FROM users');
+        const [rows] = await db.execute(`
+            SELECT 
+                u.id, u.name, u.username, u.email, u.role_id as roleId, 
+                COALESCE(r.name, u.role_name) as role, 
+                u.status, u.image_url 
+            FROM users u
+            LEFT JOIN roles r ON u.role_id = r.id
+        `);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -99,14 +106,33 @@ exports.updateUser = async (req, res) => {
 };
 
 exports.deleteUser = async (req, res) => {
+    const { id } = req.params;
+    
     try {
-        const [[user]] = await db.execute('SELECT name FROM users WHERE id = ?', [req.params.id]);
-        await db.execute('DELETE FROM users WHERE id = ?', [req.params.id]);
-        if (user) {
-            await logAction(req.user.id, req.user.name, req.user.role, `Deleted user: ${user.name}`);
+        // 1. Prevent self-deletion
+        if (String(id) === String(req.user.id)) {
+            return res.status(400).json({ error: 'You cannot delete your own account while logged in.' });
         }
+
+        // 2. Fetch target user info
+        const [[targetUser]] = await db.execute('SELECT name, role_name as role FROM users WHERE id = ?', [id]);
+        if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+        // 3. Prevent lower roles from deleting higher ones
+        const requesterRole = req.user.role.toLowerCase();
+        const targetRole = targetUser.role.toLowerCase();
+
+        if (targetRole === 'super admin' && requesterRole !== 'super admin') {
+            return res.status(403).json({ error: 'Permission Denied: Only Super Admins can delete other Super Admin accounts.' });
+        }
+
+        await db.execute('DELETE FROM users WHERE id = ?', [id]);
+        await logAction(req.user.id, req.user.name, req.user.role, `Permanently purged user: ${targetUser.name}`);
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error('Delete User Error:', err.message);
+        res.status(500).json({ error: err.message }); 
+    }
 };
 
 exports.getAllRoles = async (req, res) => {
@@ -141,34 +167,55 @@ exports.createRole = async (req, res) => {
             'INSERT INTO roles (name, permissions, status) VALUES (?, ?, ?)', 
             [name, JSON.stringify(permissions), status]
         );
-        await logAction(req.user.id, req.user.name, req.user.role, `Created new role: ${name}`);
+        await logAction(req.user.id, req.user.name, req.user.role, `Created new system role: ${name}`);
         res.json({ success: true, id: result.insertId });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 exports.updateRole = async (req, res) => {
     const { name = '', permissions = {}, status = 'Active' } = req.body;
+    const { id } = req.params;
     try {
+        // 1. Update the role itself
         await db.execute(
             'UPDATE roles SET name=?, permissions=?, status=? WHERE id=?', 
-            [name, JSON.stringify(permissions), status, req.params.id]
+            [name, JSON.stringify(permissions), status, id]
         );
-        await logAction(req.user.id, req.user.name, req.user.role, `Updated role policy: ${name}`);
+        
+        // 2. Proactively propagate role name change to users table to maintain consistency 
+        // for faster lookups and legacy code paths.
+        if (name) {
+            await db.execute('UPDATE users SET role_name = ? WHERE role_id = ?', [name, id]);
+        }
+
+        await logAction(req.user.id, req.user.name, req.user.role, `Configured role policy: ${name}`);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 exports.deleteRole = async (req, res) => {
+    const { id } = req.params;
     try {
-        const [[role]] = await db.execute('SELECT name FROM roles WHERE id = ?', [req.params.id]);
+        const [[role]] = await db.execute('SELECT name FROM roles WHERE id = ?', [id]);
         if (!role) return res.status(404).json({ error: 'Role not found' });
         
-        if (req.params.id == 1 || role.name.toLowerCase() === 'super admin') {
-            return res.status(403).json({ error: 'System Protected: Super Admin role cannot be deleted.' });
+        const roleNameNormalized = role.name.toLowerCase();
+        
+        // 1. System Protection
+        if (id == 1 || roleNameNormalized === 'super admin' || roleNameNormalized === 'admin') {
+            return res.status(403).json({ error: 'System Protected: Administrative roles essential for system integrity cannot be deleted.' });
         }
 
-        await db.execute('DELETE FROM roles WHERE id = ?', [req.params.id]);
-        await logAction(req.user.id, req.user.name, req.user.role, `Permanently deleted role: ${role.name}`);
+        // 2. Dependency Check (Referential Integrity)
+        const [[usageCount]] = await db.execute('SELECT COUNT(*) as count FROM users WHERE role_id = ? OR role_name = ?', [id, role.name]);
+        if (usageCount.count > 0) {
+            return res.status(400).json({ 
+                error: `Integrity Violation: ${usageCount.count} users are currently assigned to this role. Re-assign them before attempting deletion.` 
+            });
+        }
+
+        await db.execute('DELETE FROM roles WHERE id = ?', [id]);
+        await logAction(req.user.id, req.user.name, req.user.role, `Destroyed system role: ${role.name}`);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };

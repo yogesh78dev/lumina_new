@@ -59,11 +59,11 @@ const InvoicesPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string | number) => {
-    // FIX line 129: cast id to string to use toUpperCase
+    
     const idStr = String(id);
     const result = await confirmDelete({
         title: 'Delete Invoice?',
-        html: <>Are you sure you want to delete invoice <strong>{idStr.toUpperCase()}</strong>? This action cannot be undone.</>,
+        html: `Are you sure you want to delete invoice <strong>${idStr.toUpperCase()}</strong>? This action cannot be undone.`,
     });
     if (result) {
       // FIX line 151: cast id to string

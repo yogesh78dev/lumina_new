@@ -81,6 +81,10 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
     try {
         await importLeads(file, defaults);
         fireToast('success', 'Import processed successfully!');
+        setFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         onClose();
     } catch (err: any) {
         fireToast('error', err.message || 'Import failed.');
