@@ -43,6 +43,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [lostReasons, setLostReasons] = useState<LostReason[]>([]);
   const [saleBy, setSaleBy] = useState<SaleBy[]>([]);
   const [workedBy, setWorkedBy] = useState<WorkedBy[]>([]);
+  const [publicConfigLoading, setPublicConfigLoading] = useState(true);
 
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
@@ -170,6 +171,39 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [fetchChatMessages, fetchNotifications]);
 
+  const fetchPublicConfig = useCallback(async () => {
+    try {
+        const publicConfig = await api.config.getPublicConfig();
+        if (publicConfig) {
+            setCompanyDetails(prev => ({ ...prev, ...publicConfig }));
+        }
+    } catch (err) {
+        console.error('Public config fetch failed:', err);
+    } finally {
+        setPublicConfigLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPublicConfig();
+  }, [fetchPublicConfig]);
+
+  // Handle Favicon and Title Sync
+  useEffect(() => {
+    if (companyDetails.companyName) {
+        document.title = `${companyDetails.companyName} | Enterprise CRM`;
+    }
+    if (companyDetails.faviconUrl) {
+        let link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
+        if (!link) {
+            link = document.createElement('link');
+            link.rel = 'shortcut icon';
+            document.head.appendChild(link);
+        }
+        link.href = companyDetails.faviconUrl;
+    }
+  }, [companyDetails.companyName, companyDetails.faviconUrl]);
+
   // Only trigger fetchData when the logged-in User ID changes (identity),
   // not when any property of the user (like imageUrl) changes.
   useEffect(() => { 
@@ -181,7 +215,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const pollId = setInterval(() => {
         fetchChatMessages();
         fetchNotifications();
-    }, 7000); // 7s for better real-time feel
+    }, 3000); // 3s for better real-time feel
     return () => clearInterval(pollId);
   }, [currentUser, fetchChatMessages, fetchNotifications]);
 

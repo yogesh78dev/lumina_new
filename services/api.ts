@@ -30,7 +30,7 @@ async function request(endpoint: string, options: RequestInit = {}) {
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'API request failed');
+        throw new Error(errorData.error || errorData.message || 'API request failed');
     }
     return response.json();
 }
@@ -131,6 +131,7 @@ export const api = {
     },
     config: {
         init: () => request('/config/all'),
+        getPublicConfig: () => request('/public/config'),
         updateCompany: (data: any) => request('/config/company', { method: 'PUT', body: JSON.stringify(data) }),
         updateEmailCredentials: (data: any) => request('/config/email-credentials', { method: 'PUT', body: JSON.stringify(data) }),
         updateMobileCredentials: (data: any) => request('/config/mobile-credentials', { method: 'PUT', body: JSON.stringify(data) }),

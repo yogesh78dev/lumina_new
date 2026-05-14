@@ -21,6 +21,7 @@ const targetRoutes = require('./routes/targetRoutes');
 const logRoutes = require('./routes/logRoutes');
 const commRoutes = require('./routes/communicationRoutes');
 const callController = require('./controllers/callController');
+const configController = require('./controllers/configController');
 const notificationRoutes = require('./routes/notificationRoutes');
 const vendorRoutes = require('./routes/vendorRoutes');
 const dataRoutes = require('./routes/dataRoutes');
@@ -48,6 +49,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Routing Layer
 app.use('/api/auth', authLimiter, authRoutes);
+
+// Public Config (for Login/Forgot Password pages)
+app.get('/api/public/config', configController.getPublicConfig);
 
 // Public Voice Webhooks (Twilio)
 app.post('/api/public/voice/twiml', callController.generateTwiML);

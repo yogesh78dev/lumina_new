@@ -25,7 +25,7 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const navigate = useNavigate();
-  const { login } = useCrm();
+  const { login, companyDetails } = useCrm();
 
   useEffect(() => {
     const slideInterval = setInterval(() => {
@@ -88,7 +88,7 @@ const LoginPage: React.FC = () => {
             {/* Right Side - Form */}
             <div className="login-form-section">
                 <div className="mb-8">
-                    <img src="https://www.theglobalvisa.in/assets/img/logo/logo.webp" alt="Lumina Infotech" className="h-10 mb-4" />
+                    <img src={companyDetails.logoUrl || "https://www.luminainfotech.in/assets/img/logo.svg"} alt={companyDetails.companyName} className="h-10 mb-4 rounded-md" />
                     <h1 className="text-3xl font-bold text-gray-800">Login</h1>
                     <p className="text-gray-500 mt-2">Welcome back! Please enter your details.</p>
                 </div>
@@ -165,8 +165,8 @@ const LoginPage: React.FC = () => {
                 </form>
             </div>
         </div>
-         <p className="copyright-text">
-            2025 © <a href="https://www.luminainfotech.in/" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-primary hover:underline">Lumina Infotech</a>. All Rights Reserved
+         <p className="copyright-text text-center mt-8 text-sm text-gray-500">
+            {new Date().getFullYear()} © <a href={companyDetails.website || "https://www.luminainfotech.in/"} target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-primary hover:underline">{companyDetails.companyName || "Lumina Infotech"}</a>. All Rights Reserved
         </p>
         <style>{`
             @keyframes shake {

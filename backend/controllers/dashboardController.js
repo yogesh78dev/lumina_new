@@ -6,12 +6,19 @@ const db = require('../db');
  */
 exports.getStats = async (req, res) => {
     try {
+        const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
+        const userId = req.user.id;
+        
+        const filter = isSuperAdmin ? '' : ' WHERE assigned_to_id = ?';
+        const customerFilter = isSuperAdmin ? '' : ' WHERE sale_by_id = ?';
+        const invoiceFilter = isSuperAdmin ? '' : ' AND customer_id IN (SELECT id FROM customers WHERE sale_by_id = ?)';
+        
         const queries = {
-            totalLeads: 'SELECT COUNT(*) as count FROM leads',
-            newLeads: 'SELECT COUNT(*) as count FROM leads WHERE lead_status = "New Lead"',
-            totalCustomers: 'SELECT COUNT(*) as count FROM customers',
-            totalRevenue: 'SELECT SUM(amount) as total FROM invoices WHERE status = "Paid"',
-            pipeline: 'SELECT lead_status as name, COUNT(*) as count FROM leads GROUP BY lead_status',
+            totalLeads: `SELECT COUNT(*) as count FROM leads${filter}`,
+            newLeads: `SELECT COUNT(*) as count FROM leads WHERE lead_status = "New Lead"${isSuperAdmin ? '' : ' AND assigned_to_id = ?'}`,
+            totalCustomers: `SELECT COUNT(*) as count FROM customers${customerFilter}`,
+            totalRevenue: `SELECT SUM(amount) as total FROM invoices WHERE status = "Paid"${invoiceFilter}`,
+            pipeline: `SELECT lead_status as name, COUNT(*) as count FROM leads${filter} GROUP BY lead_status`,
             recentActivity: 'SELECT title, created_at FROM system_logs ORDER BY created_at DESC LIMIT 5'
         };
 
@@ -23,11 +30,11 @@ exports.getStats = async (req, res) => {
             [pipelineResult],
             [activityResult]
         ] = await Promise.all([
-            db.execute(queries.totalLeads),
-            db.execute(queries.newLeads),
-            db.execute(queries.totalCustomers),
-            db.execute(queries.totalRevenue),
-            db.execute(queries.pipeline),
+            db.execute(queries.totalLeads, isSuperAdmin ? [] : [userId]),
+            db.execute(queries.newLeads, isSuperAdmin ? [] : [userId]),
+            db.execute(queries.totalCustomers, isSuperAdmin ? [] : [userId]),
+            db.execute(queries.totalRevenue, isSuperAdmin ? [] : [userId]),
+            db.execute(queries.pipeline, isSuperAdmin ? [] : [userId]),
             db.execute(queries.recentActivity)
         ]);
 

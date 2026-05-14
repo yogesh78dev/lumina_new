@@ -88,6 +88,19 @@ exports.getHandshake = async (req, res) => {
 };
 
 /**
+ * Fetches basic company public information (Logo, Name, Favicon)
+ * Accessible without authentication for login/forgot password pages.
+ */
+exports.getPublicConfig = async (req, res) => {
+    try {
+        const [rows] = await db.execute('SELECT company_name as companyName, logo_url as logoUrl, favicon_url as faviconUrl FROM company_details WHERE id = 1');
+        res.json(rows[0] || {});
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+/**
  * Update global company profile
  */
 exports.updateCompany = async (req, res) => {

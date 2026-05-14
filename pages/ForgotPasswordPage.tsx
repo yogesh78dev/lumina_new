@@ -1,10 +1,12 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useCrm } from '../hooks/useCrm';
 
 const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const { companyDetails } = useCrm();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +30,7 @@ const ForgotPasswordPage: React.FC = () => {
             {/* Right Side - Form */}
             <div className="login-form-section">
                 <div className="mb-8">
-                    <img src="https://www.luminainfotech.in/assets/img/logo.svg" alt="Lumina Infotech" className="h-10 mb-4" />
+                    <img src={companyDetails.logoUrl || "https://www.luminainfotech.in/assets/img/logo.svg"} alt={companyDetails.companyName} className="h-10 mb-4 rounded-md" />
                     <h1 className="text-3xl font-bold text-gray-800">Forgot Password?</h1>
                     <p className="text-gray-500 mt-2">Enter your email and we'll send you a link to reset your password.</p>
                 </div>
@@ -65,8 +67,8 @@ const ForgotPasswordPage: React.FC = () => {
                 </div>
             </div>
         </div>
-        <p className="copyright-text">
-            2025 © <a href="https://www.luminainfotech.in/" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-primary hover:underline">Lumina Infotech</a>. All Rights Reserved
+        <p className="copyright-text text-center mt-8 text-sm text-gray-500">
+            {new Date().getFullYear()} © <a href={companyDetails.website || "https://www.luminainfotech.in/"} target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-primary hover:underline">{companyDetails.companyName || "Lumina Infotech"}</a>. All Rights Reserved
         </p>
     </div>
   );

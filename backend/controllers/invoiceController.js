@@ -3,7 +3,8 @@ const db = require('../db');
 
 exports.getAll = async (req, res) => {
     try {
-        const [rows] = await db.execute(`
+        const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
+        let sql = `
             SELECT 
                 i.id, 
                 i.customer_id AS customerId, 
@@ -14,8 +15,15 @@ exports.getAll = async (req, res) => {
                 c.name as customerName 
             FROM invoices i 
             LEFT JOIN customers c ON i.customer_id = c.id 
-            ORDER BY i.created_at DESC
-        `);
+        `;
+        const params = [];
+        if (!isSuperAdmin) {
+            sql += ' WHERE c.sale_by_id = ?';
+            params.push(req.user.id);
+        }
+        sql += ' ORDER BY i.created_at DESC';
+        
+        const [rows] = await db.execute(sql, params);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 };

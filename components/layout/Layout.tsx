@@ -107,28 +107,15 @@ const SidebarContent: React.FC<{
         navigate('/login');
     }
 
-    const logoUrl = companyDetails?.logoUrl || (isCollapsed ? "https://www.luminainfotech.in/assets/img/favicon/apple-touch-icon.png" : "https://www.luminainfotech.in/assets/img/logo-light.svg");
-    const faviconUrl = companyDetails?.faviconUrl || "https://www.luminainfotech.in/assets/img/favicon/apple-touch-icon.png";
-
-    useEffect(() => {
-        if (companyDetails?.faviconUrl) {
-            let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
-            if (!link) {
-                link = document.createElement('link');
-                link.rel = 'icon';
-                document.getElementsByTagName('head')[0].appendChild(link);
-            }
-            link.href = companyDetails.faviconUrl;
-        }
-    }, [companyDetails?.faviconUrl]);
+    const logoUrl = companyDetails?.logoUrl || "https://www.luminainfotech.in/assets/img/logo.svg";
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
             <div className="flex items-center justify-start h-16 border-b border-slate-800 flex-shrink-0 px-4">
                 <img 
                     src={logoUrl} 
-                    alt={companyDetails?.companyName || "Lumina Logo"} 
-                    className={`${isCollapsed ? 'h-10 w-10' : 'h-10 w-auto max-w-full'} object-contain`} 
+                    alt={companyDetails?.companyName || "CRM Logo"} 
+                    className={`${isCollapsed ? 'h-8 w-8 mx-auto' : 'h-10 w-auto max-w-full'} object-contain rounded-md`} 
                 />
             </div>
             

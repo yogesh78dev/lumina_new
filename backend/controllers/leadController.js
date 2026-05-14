@@ -5,7 +5,8 @@ const { createNotification } = require('./notificationController');
 
 exports.getAllLeads = async (req, res) => {
     try {
-        const sql = `
+        const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
+        let sql = `
             SELECT 
                 l.id, l.name, l.phone, l.email, l.service, l.country, 
                 l.lead_source AS leadSource, l.lead_status AS leadStatus, 
@@ -16,11 +17,20 @@ exports.getAllLeads = async (req, res) => {
                 (SELECT COUNT(*) FROM lead_reminders WHERE lead_id = l.id AND is_completed = 0) AS remindersCount,
                 (SELECT content FROM lead_notes WHERE lead_id = l.id ORDER BY created_at DESC LIMIT 1) AS latestNote
             FROM leads l
-            ORDER BY l.created_at DESC
         `;
-        const [rows] = await db.execute(sql);
+        
+        const params = [];
+        if (!isSuperAdmin) {
+            sql += ' WHERE l.assigned_to_id = ?';
+            params.push(req.user.id);
+        }
+        
+        sql += ' ORDER BY l.created_at DESC';
+        
+        const [rows] = await db.execute(sql, params);
         res.json(rows);
     } catch (err) { 
+        console.error('Fetch Leads Error:', err);
         res.status(500).json({ error: 'Internal Server Error' }); 
     }
 };
@@ -72,10 +82,16 @@ exports.createLead = async (req, res) => {
 
 exports.updateLead = async (req, res) => {
     const { id } = req.params;
-    const p = req.body; // Incoming body is camelCase from Frontend
+    const p = req.body; 
     
     try {
         const [[oldLead]] = await db.execute('SELECT assigned_to_id FROM leads WHERE id = ?', [id]);
+        if (!oldLead) return res.status(404).json({ error: 'Lead not found' });
+
+        const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
+        if (!isSuperAdmin && oldLead.assigned_to_id && String(oldLead.assigned_to_id) !== String(req.user.id)) {
+            return res.status(403).json({ error: 'Access denied. You can only update your own leads.' });
+        }
 
         // Map camelCase Frontend props to correct Database/Query fields
         const fields = [
@@ -126,13 +142,19 @@ exports.updateLead = async (req, res) => {
 };
 
 exports.deleteLead = async (req, res) => {
+    const { id } = req.params;
     try {
-        const [[lead]] = await db.execute('SELECT name FROM leads WHERE id = ?', [req.params.id]);
-        await db.execute('DELETE FROM leads WHERE id = ?', [req.params.id]);
-        
-        if (lead) {
-            await logAction(req.user.id, req.user.name, req.user.role, `Permanently deleted lead: ${lead.name}`);
+        const [[lead]] = await db.execute('SELECT name, assigned_to_id FROM leads WHERE id = ?', [id]);
+        if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+        const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
+        if (!isSuperAdmin && lead.assigned_to_id && String(lead.assigned_to_id) !== String(req.user.id)) {
+            return res.status(403).json({ error: 'Access denied.' });
         }
+
+        await db.execute('DELETE FROM leads WHERE id = ?', [id]);
+        
+        await logAction(req.user.id, req.user.name, req.user.role, `Permanently deleted lead: ${lead.name}`);
         res.json({ success: true });
     } catch (err) { 
         res.status(500).json({ error: err.message }); 
@@ -219,8 +241,16 @@ exports.convertToCustomer = async (req, res) => {
 };
 
 exports.getNotes = async (req, res) => {
+    const { id } = req.params;
     try {
-        const [rows] = await db.execute('SELECT id, lead_id AS leadId, content, author_name AS author, created_at AS createdAt FROM lead_notes WHERE lead_id = ? ORDER BY created_at DESC', [req.params.id]);
+        const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
+        if (!isSuperAdmin) {
+            const [[lead]] = await db.execute('SELECT assigned_to_id FROM leads WHERE id = ?', [id]);
+            if (!lead || (lead.assigned_to_id && String(lead.assigned_to_id) !== String(req.user.id))) {
+                return res.status(403).json({ error: 'Access denied.' });
+            }
+        }
+        const [rows] = await db.execute('SELECT id, lead_id AS leadId, content, author_name AS author, created_at AS createdAt FROM lead_notes WHERE lead_id = ? ORDER BY created_at DESC', [id]);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -310,7 +340,20 @@ exports.toggleReminder = async (req, res) => {
 
 exports.getAllReminders = async (req, res) => {
     try {
-        const [rows] = await db.execute('SELECT id, lead_id AS leadId, note, due_date AS dueDate, is_completed AS isCompleted FROM lead_reminders ORDER BY due_date ASC');
+        const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
+        let sql = `
+            SELECT r.id, r.lead_id AS leadId, r.note, r.due_date AS dueDate, r.is_completed AS isCompleted 
+            FROM lead_reminders r
+            JOIN leads l ON r.lead_id = l.id
+        `;
+        const params = [];
+        if (!isSuperAdmin) {
+            sql += ' WHERE l.assigned_to_id = ?';
+            params.push(req.user.id);
+        }
+        sql += ' ORDER BY r.due_date ASC';
+        
+        const [rows] = await db.execute(sql, params);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 };

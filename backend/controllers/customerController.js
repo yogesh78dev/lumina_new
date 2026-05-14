@@ -4,7 +4,8 @@ const { logAction } = require('../utils/logger');
 
 exports.getAll = async (req, res) => {
     try {
-        const sql = `
+        const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
+        let sql = `
             SELECT 
                 id, customer_id_string AS customerId, name, phone, email, country, 
                 company_name AS companyName, gst_number AS gstNumber, location, 
@@ -12,9 +13,17 @@ exports.getAll = async (req, res) => {
                 close_date AS closeDate, action, passport_status AS passportStatus, 
                 created_at AS createdAt 
             FROM customers 
-            ORDER BY created_at DESC
         `;
-        const [rows] = await db.execute(sql);
+        
+        const params = [];
+        if (!isSuperAdmin) {
+            sql += ' WHERE sale_by_id = ?';
+            params.push(req.user.id);
+        }
+        
+        sql += ' ORDER BY created_at DESC';
+        
+        const [rows] = await db.execute(sql, params);
         res.json(rows);
     } catch (err) { 
         console.error('Customer fetch error:', err);
