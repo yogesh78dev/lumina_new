@@ -105,7 +105,9 @@ const LeadsPage: React.FC = () => {
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
   
-  const isAdminOrSuperAdmin = currentUser && ['Admin', 'Super Admin', 'Manager'].includes(currentUser.role);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isSuperAdmin = currentUser && String(currentUser.role).toLowerCase() === 'super admin';
 
   const activeStatus = searchParams.get('status') || TABS[0].key;
 
@@ -208,35 +210,56 @@ const LeadsPage: React.FC = () => {
     setIsActionsMenuOpen(false);
   };
 
-  const handleBulkAssign = () => {
-    if (bulkAssignUser && selectedIds.size > 0) {
-      bulkAssignLeads(Array.from(selectedIds), bulkAssignUser);
-      fireToast('success', `${selectedIds.size} lead(s) assigned.`);
-      setSelectedIds(new Set());
-      setBulkAssignUser('');
+  const handleBulkAssign = async () => {
+    if (bulkAssignUser && selectedIds.size > 0 && !isSubmitting) {
+      setIsSubmitting(true);
+      try {
+        await bulkAssignLeads(Array.from(selectedIds), bulkAssignUser);
+        fireToast('success', `${selectedIds.size} lead(s) assigned.`);
+        setSelectedIds(new Set());
+        setBulkAssignUser('');
+      } catch (error: any) {
+        fireToast('error', error.message || 'Failed to assign selected leads.');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   }
 
-  const handleBulkStatusChange = () => {
-    if (bulkStatus && selectedIds.size > 0) {
-      bulkUpdateLeadStatus(Array.from(selectedIds), bulkStatus);
-      fireToast('success', `${selectedIds.size} lead(s) status updated.`);
-      setSelectedIds(new Set());
-      setBulkStatus('');
+  const handleBulkStatusChange = async () => {
+    if (bulkStatus && selectedIds.size > 0 && !isSubmitting) {
+      setIsSubmitting(true);
+      try {
+        await bulkUpdateLeadStatus(Array.from(selectedIds), bulkStatus);
+        fireToast('success', `${selectedIds.size} lead(s) status updated.`);
+        setSelectedIds(new Set());
+        setBulkStatus('');
+      } catch (error: any) {
+        fireToast('error', error.message || 'Failed to update selected leads.');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   }
 
   const handleBulkDelete = async () => {
-    if (selectedIds.size > 0) {
+    if (selectedIds.size > 0 && !isSubmitting) {
         const result = await confirmDelete({
             title: `Delete ${selectedIds.size} Lead(s)?`,
             html: `You are about to delete ${selectedIds.size} selected lead(s). This action cannot be undone.`,
         });
 
         if (result) {
-            bulkDeleteLeads(Array.from(selectedIds));
-            setSelectedIds(new Set());
-            fireToast('success', `${selectedIds.size} lead(s) deleted successfully.`);
+            setIsSubmitting(true);
+            try {
+              await bulkDeleteLeads(Array.from(selectedIds));
+              setSelectedIds(new Set());
+              fireToast('success', `${selectedIds.size} lead(s) deleted successfully.`);
+            } catch (error: any) {
+              fireToast('error', error.message || 'Failed to delete selected leads.');
+            } finally {
+              setIsSubmitting(false);
+            }
         }
     }
   }
@@ -286,7 +309,7 @@ const LeadsPage: React.FC = () => {
                         className="w-full sm:w-64"
                     />
                     <div className="flex gap-2">
-                        {isAdminOrSuperAdmin && (
+                        {isSuperAdmin && (
                             <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} className="filter-dropdown w-full sm:w-40">
                                 <option value="all">All Agents</option>
                                 {users.map(user => (
@@ -371,7 +394,7 @@ const LeadsPage: React.FC = () => {
                 
                 {permissions.can('leads', 'update') && (
                   <>
-                    {isAdminOrSuperAdmin && (
+                    {isSuperAdmin && (
                         <div className="flex items-center gap-2">
                             <select 
                             value={bulkAssignUser}

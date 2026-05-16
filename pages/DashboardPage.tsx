@@ -21,7 +21,7 @@ const DashboardPage: React.FC = () => {
   const revenueChartRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
 
-  const isAdminOrSuperAdmin = currentUser && ['Admin', 'Super Admin', 'Manager'].includes(currentUser.role);
+  const isSuperAdmin = currentUser && String(currentUser.role).toLowerCase() === 'super admin';
 
   // Time and Date State
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -323,7 +323,7 @@ const DashboardPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {isAdminOrSuperAdmin && (
+                    {isSuperAdmin && (
                         <div className="relative group flex-grow sm:w-48">
                             <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-hover:text-primary transition-colors">
                                 <i className="ri-user-line text-lg"></i>
@@ -338,7 +338,7 @@ const DashboardPage: React.FC = () => {
                         </div>
                     )}
 
-                    {isAdminOrSuperAdmin && (
+                    {isSuperAdmin && (
                         <div className="relative group flex-grow sm:w-48">
                             <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-hover:text-primary transition-colors">
                                 <i className="ri-links-line text-lg"></i>
@@ -443,7 +443,7 @@ const DashboardPage: React.FC = () => {
                         </div>
                     </button>
 
-                    {isAdminOrSuperAdmin && (
+                    {isSuperAdmin && (
                         <button onClick={() => openUserModal(null)} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:border-orange-200 transition-all group flex items-center gap-3 text-left">
                             <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center text-xl group-hover:bg-orange-600 group-hover:text-white transition-colors">
                                 <i className="ri-user-settings-line"></i>
@@ -557,7 +557,7 @@ const DashboardPage: React.FC = () => {
                 </div>
 
                 {/* 7. Top Performers */}
-                {isAdminOrSuperAdmin && (
+                {isSuperAdmin && (
                     <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
                         <div className="p-5 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="font-bold text-gray-800 text-lg">Agent Performance</h3>

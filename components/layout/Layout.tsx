@@ -107,7 +107,7 @@ const SidebarContent: React.FC<{
         navigate('/login');
     }
 
-    const logoUrl = companyDetails?.logoUrl || "https://www.luminainfotech.in/assets/img/logo.svg";
+    const logoUrl = companyDetails?.logoUrl || "https://www.luminainfotech.com/assets/img/logo.svg";
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
@@ -146,7 +146,7 @@ const SidebarContent: React.FC<{
                     </Tooltip>
                 </div>
                  <div className={`px-4 pt-2 mt-2 border-t border-slate-800 text-left text-xs text-slate-500 transition-all duration-300 ease-in-out overflow-hidden ${isCollapsed ? 'h-0 opacity-0' : 'h-auto opacity-100'}`}>
-                    <p>&copy; {new Date().getFullYear()} <a href="https://www.luminainfotech.in/" target="_blank" rel="noopener noreferrer" className="hover:text-primary font-semibold">Lumina Infotech</a></p>
+                    <p>&copy; {new Date().getFullYear()} <a href="https://www.luminainfotech.com/" target="_blank" rel="noopener noreferrer" className="hover:text-primary font-semibold">Lumina Infotech</a></p>
                  </div>
             </div>
         </div>

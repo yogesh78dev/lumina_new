@@ -29,6 +29,7 @@ const initialFormData: Omit<Lead, 'id' | 'createdAt'> = {
 
 const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAndNew, lead }) => {
   const [formData, setFormData] = useState(initialFormData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { leadSources, leadStatuses, applicationStatuses, passportStatuses } = useCrm();
 
   useEffect(() => {
@@ -45,6 +46,7 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
                 passportStatus: passportStatuses[0]?.name || 'With Client'
             });
         }
+        setIsSubmitting(false);
     }
   }, [lead, isOpen, leadSources, leadStatuses, applicationStatuses, passportStatuses]);
 
@@ -66,14 +68,26 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
       });
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+        await onSave(formData);
+    } finally {
+        setIsSubmitting(false);
+    }
   };
   
-  const handleSaveAndNewClick = () => {
-    onSaveAndNew(formData);
-    handleClear();
+  const handleSaveAndNewClick = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+        await onSaveAndNew(formData);
+        handleClear();
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   return (
@@ -147,15 +161,15 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
             </div>
           </div>
           <div className="flex justify-end space-x-3 bg-gray-50 p-4 rounded-b-lg flex-shrink-0">
-            <button type="button" onClick={handleClear} className="px-5 py-2.5 bg-slate-200 text-slate-800 font-semibold rounded-lg hover:bg-slate-300 text-sm">
+            <button type="button" onClick={handleClear} disabled={isSubmitting} className="px-5 py-2.5 bg-slate-200 text-slate-800 font-semibold rounded-lg hover:bg-slate-300 text-sm disabled:opacity-50">
               Clear
             </button>
-            <button type="submit" className="px-5 py-2.5 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 text-sm">
-              Submit Details
+            <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 text-sm disabled:opacity-70 flex items-center gap-2">
+              {isSubmitting ? <span className="flex items-center gap-2"><i className="ri-loader-4-line animate-spin"></i> Saving...</span> : 'Submit Details'}
             </button>
             {!lead && (
-                 <button type="button" onClick={handleSaveAndNewClick} className="px-5 py-2.5 bg-secondary text-white font-semibold rounded-lg hover:bg-black text-sm">
-                    Save & New
+                 <button type="button" onClick={handleSaveAndNewClick} disabled={isSubmitting} className="px-5 py-2.5 bg-secondary text-white font-semibold rounded-lg hover:bg-black text-sm disabled:opacity-70">
+                    {isSubmitting ? 'Saving...' : 'Save & New'}
                  </button>
             )}
           </div>
