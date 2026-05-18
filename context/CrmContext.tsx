@@ -758,6 +758,8 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const openUserModal = useCallback((u: User | null) => { setEditingUser(u); setIsUserModalOpen(true); }, []);
   const closeUserModal = useCallback(() => setIsUserModalOpen(false), []);
 
+  const getUnassignedLeadsCount = useCallback(() => leads.filter(l => !l.assignedToId).length, [leads]);
+
   const contextValue = useMemo(() => ({
     currentUser, users, leads, customers, invoices, roles, vendors, leadNotes, leadReminders, leadDocuments,
     companyDetails, leadStatuses, leadSources, applicationStatuses, passportStatuses, documentTypes,
@@ -808,7 +810,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addServiceType, updateServiceType, deleteServiceType,
     addLostReason, updateLostReason, deleteLostReason,
     getEmailsForLead, sendEmail, getWhatsAppMessagesForLead, sendWhatsAppMessage,
-    activeCall, getCallLogsForLead, initiateCall, endCall
+    activeCall, getCallLogsForLead, initiateCall, endCall, getUnassignedLeadsCount
   }), [
     currentUser, users, leads, customers, invoices, roles, vendors, leadNotes, leadReminders, leadDocuments,
     companyDetails, leadStatuses, leadSources, applicationStatuses, passportStatuses, documentTypes,
@@ -843,7 +845,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     deleteDocumentType, addRemarkStatus, updateRemarkStatus, deleteRemarkStatus, addLeadSource,
     updateLeadSource, deleteLeadSource, addServiceType, updateServiceType, deleteServiceType,
     addLostReason, updateLostReason, deleteLostReason, getEmailsForLead, sendEmail,
-    getWhatsAppMessagesForLead, sendWhatsAppMessage, activeCall, getCallLogsForLead, initiateCall, endCall, quotes, emails, whatsappMessages, messages, callLogs
+    getWhatsAppMessagesForLead, sendWhatsAppMessage, activeCall, getCallLogsForLead, initiateCall, endCall, getUnassignedLeadsCount, quotes, emails, whatsappMessages, messages, callLogs
   ]);
 
   return <CrmContext.Provider value={contextValue}>{children}</CrmContext.Provider>;

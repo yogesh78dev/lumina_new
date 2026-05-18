@@ -126,7 +126,33 @@ exports.deleteUser = async (req, res) => {
             return res.status(403).json({ error: 'Permission Denied: Only Super Admins can delete other Super Admin accounts.' });
         }
 
+        // 4. Manually handle dependencies that don't have ON DELETE CASCADE in current production schema
+        // We do this in a specific order to avoid foreign key violations.
+        // We use a transaction-like approach (manual sequence)
+        
+        // Communications & Internal Messaging
+        await db.execute('DELETE FROM chat_messages WHERE sender_id = ? OR receiver_id = ?', [id, id]);
+        await db.execute('DELETE FROM notifications WHERE user_id = ?', [id]);
+        await db.execute('DELETE FROM call_logs WHERE user_id = ?', [id]);
+        
+        // Activity & History
+        await db.execute('DELETE FROM user_activity_logs WHERE user_id = ?', [id]);
+        await db.execute('DELETE FROM system_logs WHERE user_id = ?', [id]);
+        
+        // Targets & Perfromance
+        await db.execute('DELETE FROM targets WHERE user_id = ?', [id]);
+        
+        // References in other tables (Set to NULL or handled by schema if possible, 
+        // but explicit updates are safer if constraints are strict)
+        await db.execute('UPDATE leads SET assigned_to_id = NULL WHERE assigned_to_id = ?', [id]);
+        await db.execute('UPDATE customers SET sale_by_id = NULL WHERE sale_by_id = ?', [id]);
+        await db.execute('UPDATE lead_notes SET author_id = NULL WHERE author_id = ?', [id]);
+        await db.execute('UPDATE imported_files SET added_by_id = NULL WHERE added_by_id = ?', [id]);
+        await db.execute('UPDATE export_requests SET exported_by_id = NULL WHERE exported_by_id = ?', [id]);
+
+        // 5. Finally delete the user
         await db.execute('DELETE FROM users WHERE id = ?', [id]);
+        
         await logAction(req.user.id, req.user.name, req.user.role, `Permanently purged user: ${targetUser.name}`);
         res.json({ success: true });
     } catch (err) { 

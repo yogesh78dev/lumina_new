@@ -225,6 +225,7 @@ export interface CrmContextType {
   getCallLogsForLead: (leadId: string | number) => CallLog[];
   initiateCall: (leadId: string | number, leadName: string, phoneNumber: string) => Promise<void>;
   endCall: () => Promise<void>;
+  getUnassignedLeadsCount: () => number;
 }
 
 export const CrmContext = createContext<CrmContextType | undefined>(undefined);

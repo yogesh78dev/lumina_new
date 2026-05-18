@@ -95,9 +95,10 @@ const NavItem: React.FC<{
 const SidebarContent: React.FC<{ 
     isCollapsed: boolean;
     unreadChatCount: number;
-}> = ({ isCollapsed, unreadChatCount }) => {
+    unassignedLeadsCount: number;
+}> = ({ isCollapsed, unreadChatCount, unassignedLeadsCount }) => {
     const permissions = usePermissions();
-    const { logout, companyDetails } = useCrm();
+    const { logout, companyDetails, currentUser } = useCrm();
     const navigate = useNavigate();
     
     const handleLogout = (e: React.MouseEvent) => {
@@ -108,6 +109,7 @@ const SidebarContent: React.FC<{
     }
 
     const logoUrl = companyDetails?.logoUrl || "https://www.luminainfotech.com/assets/img/logo.svg";
+    const isSuperAdmin = currentUser?.role === 'Super Admin';
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
@@ -122,7 +124,15 @@ const SidebarContent: React.FC<{
             <div className="flex-1 overflow-y-auto overflow-x-hidden thin-scrollbar">
                 <nav className="px-2 py-4 space-y-1">
                     <NavItem to="/" icon="ri-pie-chart-2-line" label="Dashboard" isCollapsed={isCollapsed} />
-                    {permissions.can('leads', 'read') && <NavItem to="/leads" icon="ri-group-2-line" label="Leads" isCollapsed={isCollapsed} />}
+                    {permissions.can('leads', 'read') && (
+                        <NavItem 
+                            to="/leads" 
+                            icon="ri-group-2-line" 
+                            label="Leads" 
+                            isCollapsed={isCollapsed} 
+                            badge={isSuperAdmin ? unassignedLeadsCount : undefined} 
+                        />
+                    )}
                     {permissions.can('customers', 'read') && <NavItem to="/customers" icon="ri-team-line" label="Customers" isCollapsed={isCollapsed} />}
                     {permissions.can('vendors', 'read') && <NavItem to="/vendors" icon="ri-store-2-line" label="Vendors" isCollapsed={isCollapsed} />}
                     {permissions.can('reminders', 'read') && <NavItem to="/reminders" icon="ri-notification-3-line" label="Reminders" isCollapsed={isCollapsed} />}
@@ -163,7 +173,7 @@ const Layout: React.FC = () => {
     isRoleModalOpen, closeRoleModal, editingRole, addRole, updateRole,
     isVendorModalOpen, closeVendorModal, editingVendor, addVendor, updateVendor,
     isQuoteBuilderOpen,
-    currentUser, logout, getTotalUnreadMessages, getUnreadNotificationCount
+    currentUser, logout, getTotalUnreadMessages, getUnreadNotificationCount, getUnassignedLeadsCount
   } = useCrm();
   const permissions = usePermissions();
   const { fireToast } = useSwal();
@@ -177,6 +187,7 @@ const Layout: React.FC = () => {
 
   const unreadChatCount = getTotalUnreadMessages();
   const unreadNotificationCount = getUnreadNotificationCount();
+  const unassignedLeadsCount = getUnassignedLeadsCount();
 
   const showGlobalCreateButton = location.pathname !== '/leads';
 
@@ -307,6 +318,7 @@ const Layout: React.FC = () => {
             <SidebarContent 
               isCollapsed={isSidebarCollapsed} 
               unreadChatCount={unreadChatCount}
+              unassignedLeadsCount={unassignedLeadsCount}
             />
          </div>
       </aside>

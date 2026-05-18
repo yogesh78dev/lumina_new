@@ -51,6 +51,9 @@ const LeadProfileSidebar: React.FC<LeadProfileSidebarProps> = ({ lead }) => {
                 </div>
                 <div className="p-4">
                     <DetailRow icon="ri-phone-line" label="Phone" value={lead.phone} isLink href={`tel:${lead.phone}`} copyable />
+                    {lead.phone2 && <DetailRow icon="ri-phone-line" label="Phone 2" value={lead.phone2} isLink href={`tel:${lead.phone2}`} copyable />}
+                    {lead.phone3 && <DetailRow icon="ri-phone-line" label="Phone 3" value={lead.phone3} isLink href={`tel:${lead.phone3}`} copyable />}
+                    {lead.phone4 && <DetailRow icon="ri-phone-line" label="Phone 4" value={lead.phone4} isLink href={`tel:${lead.phone4}`} copyable />}
                     <DetailRow icon="ri-mail-line" label="Email" value={lead.email} isLink href={`mailto:${lead.email}`} copyable />
                     <DetailRow icon="ri-building-line" label="Company" value={lead.companyName} />
                     <DetailRow icon="ri-map-pin-line" label="Location" value={lead.location} />

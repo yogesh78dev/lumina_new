@@ -6,6 +6,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { Link } from 'react-router-dom';
 import { useSwal } from '../../hooks/useSwal';
 import { capitalizeName } from '../../utils/formatters';
+import Tooltip from '../common/Tooltip';
 
 interface LeadTableProps {
   leads: Lead[];
@@ -186,7 +187,23 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
                 </select>
             </td>
         );
-        case 'assignedToId': return <td className="p-3 min-w-[160px]"><select value={lead.assignedToId || ''} disabled={!canUpdateLeads} onChange={(e) => handleInlineUpdate(lead, 'assignedToId', e.target.value)} className="w-full p-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"><option value="">Unassigned</option>{users.map(user => <option key={user.id} value={user.id}>{capitalizeName(user.name)}</option>)}</select></td>;
+        case 'assignedToId': 
+            const isUnassigned = !lead.assignedToId;
+            return (
+                <td className="p-3 min-w-[160px]">
+                    <div className="relative">
+                        <select 
+                            value={lead.assignedToId || ''} 
+                            disabled={!canUpdateLeads} 
+                            onChange={(e) => handleInlineUpdate(lead, 'assignedToId', e.target.value)} 
+                            className={`w-full p-1.5 border rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed transition-all ${isUnassigned ? 'border-red-300 bg-red-50 text-red-700 font-bold animate-pulse' : 'border-gray-300 bg-white text-gray-700'}`}
+                        >
+                            <option value="">⚠️ Unassigned</option>
+                            {users.map(user => <option key={user.id} value={user.id}>{capitalizeName(user.name)}</option>)}
+                        </select>
+                    </div>
+                </td>
+            );
         
         case 'leadStatus': 
             const statusStyle = getSelectClass('status');
@@ -234,6 +251,24 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
                 </td>
             );
 
+        case 'phone': 
+            const hasMorePhones = !!(lead.phone2 || lead.phone3 || lead.phone4);
+            const additionalCount = [lead.phone2, lead.phone3, lead.phone4].filter(Boolean).length;
+            return (
+                <td className="p-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                        <span className="text-gray-700 font-medium">{lead.phone}</span>
+                        {hasMorePhones && (
+                            <Tooltip content={`Additional numbers: ${[lead.phone2, lead.phone3, lead.phone4].filter(Boolean).join(', ')}`}>
+                                <span className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded-full font-bold border border-blue-200">
+                                    +{additionalCount}
+                                </span>
+                            </Tooltip>
+                        )}
+                    </div>
+                </td>
+            );
+        case 'email': return <td className="p-3 whitespace-nowrap"><span className="text-gray-600 italic text-xs">{lead.email || '-'}</span></td>;
         case 'actions': return (
             <td className="p-3 whitespace-nowrap min-w-[100px]">
                 <div className="flex items-center gap-1">

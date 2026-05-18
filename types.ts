@@ -86,6 +86,9 @@ export interface Lead {
   id: string | number;
   name: string;
   phone: string;
+  phone2?: string;
+  phone3?: string;
+  phone4?: string;
   email?: string;
   service?: string;
   country?: string;

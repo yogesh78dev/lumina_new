@@ -19,6 +19,7 @@ const initialFormData: Omit<Invoice, 'id'|'issuedDate'|'customerName'> = {
 
 const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, onSave, invoice }) => {
   const [formData, setFormData] = useState(initialFormData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { customers } = useCrm();
 
   useEffect(() => {
@@ -34,6 +35,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, onSave, in
         customerId: customers[0]?.id || ''
        });
     }
+    setIsSubmitting(false);
   }, [invoice, isOpen, customers]);
 
   if (!isOpen) return null;
@@ -43,9 +45,15 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, onSave, in
     setFormData(prev => ({ ...prev, [name]: name === 'amount' ? parseFloat(value) : value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+        await onSave(formData);
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -99,11 +107,11 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, onSave, in
             </div>
           </div>
           <div className="flex justify-end space-x-3 bg-gray-50 p-4 rounded-b-lg">
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50">
               Cancel
             </button>
-            <button type="submit" className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
-              Save Invoice
+            <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-70 flex items-center gap-2">
+              {isSubmitting ? <><i className="ri-loader-4-line animate-spin"></i> Saving...</> : 'Save Invoice'}
             </button>
           </div>
         </form>

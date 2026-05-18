@@ -539,3 +539,6 @@ VALUES (1, 'Twilio', '+1234567890', 'AC_default_sid', 'default_token');
 
 INSERT INTO payment_gateway_settings (id, gateway_name, api_key, api_secret) 
 VALUES (1, 'Razorpay', 'rzp_test_default', 'default_secret');
+
+ALTER TABLE `leads` ADD `phone2` VARCHAR(30) NULL DEFAULT NULL AFTER `phone`, ADD `phone3` VARCHAR(30) NULL DEFAULT NULL AFTER `phone2`, ADD `phone4` VARCHAR(30) NULL DEFAULT NULL AFTER `phone3`;
+

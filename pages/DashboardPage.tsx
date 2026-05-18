@@ -55,7 +55,7 @@ const DashboardPage: React.FC = () => {
 
     const filteredLeads = leads.filter(lead => {
       const isAfterTimeLimit = applyTimeFilter ? new Date(lead.createdAt) >= timeLimit : true;
-      const matchesAgent = agentFilter === 'all' || lead.assignedToId === agentFilter;
+      const matchesAgent = agentFilter === 'all' || (agentFilter === 'unassigned' ? (!lead.assignedToId || Number(lead.assignedToId) === 0) : lead.assignedToId === agentFilter);
       const matchesSource = sourceFilter === 'all' || lead.leadSource === sourceFilter;
       return isAfterTimeLimit && matchesAgent && matchesSource;
     });
@@ -240,6 +240,7 @@ const DashboardPage: React.FC = () => {
   // Stats calculation
   const newLeadsCount = filteredData.filteredLeads.filter(l => l.leadStatus === 'New Lead').length;
   const followUpCount = filteredData.filteredLeads.filter(l => l.leadStatus === 'Follow-up').length;
+  const unassignedLeadsCount = leads.filter(l => !l.assignedToId || Number(l.assignedToId) === 0).length;
   const totalCustomers = filteredData.filteredCustomers.length;
   const totalRevenue = filteredData.filteredInvoices
     .filter(i => i.status === InvoiceStatus.PAID)
@@ -330,6 +331,7 @@ const DashboardPage: React.FC = () => {
                             </div>
                             <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} className="w-full appearance-none bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg focus:ring-1 focus:ring-primary focus:border-primary block pl-10 pr-8 py-2.5 cursor-pointer hover:border-gray-300 transition-colors shadow-sm">
                                 <option value="all">All Agents</option>
+                                <option value="unassigned">Unassigned</option>
                                 {users.map(u => <option key={u.id} value={u.id}>{capitalizeName(u.name)}</option>)}
                             </select>
                             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
@@ -357,7 +359,22 @@ const DashboardPage: React.FC = () => {
         </div>
 
         {/* 2. Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${isSuperAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-6`}>
+            {isSuperAdmin && (
+                <Link to="/leads?status=Unassigned" className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-shadow relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i className="ri-user-shared-line text-6xl text-red-500"></i>
+                    </div>
+                    <div className="relative z-10">
+                        <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Unassigned</p>
+                        <div className="flex items-baseline gap-2 mt-2">
+                            <h3 className="text-4xl font-extrabold text-gray-800">{unassignedLeadsCount}</h3>
+                            <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Action!</span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-2">Leads waiting to be assigned</p>
+                    </div>
+                </Link>
+            )}
             <Link to="/leads?status=New Lead" className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-shadow relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <i className="ri-user-add-fill text-6xl text-primary"></i>

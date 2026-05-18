@@ -31,6 +31,7 @@ const initialFormData: Omit<Role, 'id'> = {
 
 const RoleModal: React.FC<RoleModalProps> = ({ isOpen, onClose, onSave, role }) => {
   const [formData, setFormData] = useState<Omit<Role, 'id'> | Role>(initialFormData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Robust initialization when role changes or modal opens
   useEffect(() => {
@@ -61,6 +62,7 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, onClose, onSave, role }) 
       } else {
         setFormData(initialFormData);
       }
+      setIsSubmitting(false);
     }
   }, [role, isOpen]);
 
@@ -121,10 +123,15 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, onClose, onSave, role }) 
       });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
-    onSave(formData);
+    if (!formData.name.trim() || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+        await onSave(formData);
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -237,11 +244,11 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, onClose, onSave, role }) 
           </div>
           
           <div className="flex justify-end items-center gap-3 bg-gray-50 p-6 border-t flex-shrink-0">
-            <button type="button" onClick={onClose} className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-all text-sm shadow-sm">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-100 transition-all text-sm shadow-sm disabled:opacity-50">
               Discard
             </button>
-            <button type="submit" className="px-8 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all text-sm shadow-lg shadow-primary/20 active:scale-95">
-              {role ? 'Save Policy Changes' : 'Initialize Role'}
+            <button type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all text-sm shadow-lg shadow-primary/20 active:scale-95 disabled:opacity-70 flex items-center gap-2">
+              {isSubmitting ? <><i className="ri-loader-4-line animate-spin"></i> Initializing...</> : (role ? 'Save Policy Changes' : 'Initialize Role')}
             </button>
           </div>
         </form>

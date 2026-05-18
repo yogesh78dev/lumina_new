@@ -14,6 +14,7 @@ const initialFormData: Omit<Vendor, 'id'> = {
 
 const VendorModal: React.FC<VendorModalProps> = ({ isOpen, onClose, onSave, vendor }) => {
   const [formData, setFormData] = useState<Omit<Vendor, 'id'> | Vendor>(initialFormData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -22,6 +23,7 @@ const VendorModal: React.FC<VendorModalProps> = ({ isOpen, onClose, onSave, vend
       } else {
         setFormData(initialFormData);
       }
+      setIsSubmitting(false);
     }
   }, [isOpen, vendor]);
 
@@ -32,10 +34,15 @@ const VendorModal: React.FC<VendorModalProps> = ({ isOpen, onClose, onSave, vend
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ('name' in formData && formData.name.trim()) {
-      onSave(formData);
+    if (!('name' in formData && formData.name.trim()) || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+        await onSave(formData);
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -60,11 +67,11 @@ const VendorModal: React.FC<VendorModalProps> = ({ isOpen, onClose, onSave, vend
             </div>
           </div>
           <div className="flex justify-end space-x-3 bg-gray-50 p-4 rounded-b-lg">
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50">
               Cancel
             </button>
-            <button type="submit" className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
-              {vendor ? 'Save Changes' : 'Save Vendor'}
+            <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-70 flex items-center gap-2">
+              {isSubmitting ? <><i className="ri-loader-4-line animate-spin"></i> Saving...</> : (vendor ? 'Save Changes' : 'Save Vendor')}
             </button>
           </div>
         </form>

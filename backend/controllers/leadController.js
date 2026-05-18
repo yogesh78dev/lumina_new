@@ -8,7 +8,7 @@ exports.getAllLeads = async (req, res) => {
         const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
         let sql = `
             SELECT 
-                l.id, l.name, l.phone, l.email, l.service, l.country, 
+                l.id, l.name, l.phone, l.phone2, l.phone3, l.phone4, l.email, l.service, l.country, 
                 l.lead_source AS leadSource, l.lead_status AS leadStatus, 
                 l.application_status AS applicationStatus, l.passport_status AS passportStatus, 
                 l.company_name AS companyName, l.location, l.assigned_to_id AS assignedToId, 
@@ -37,10 +37,20 @@ exports.getAllLeads = async (req, res) => {
 
 exports.createLead = async (req, res) => {
     const p = req.body;
+    const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
+    
+    // Default assigned_to_id to current user if not provided and NOT super admin
+    let assignedToId = (p.assignedToId === "" || p.assignedToId === undefined) ? null : p.assignedToId;
+    if (!assignedToId && !isSuperAdmin) {
+        assignedToId = req.user.id;
+    }
     
     const fields = [
         p.name ?? "",
         p.phone ?? "",
+        p.phone2 ?? null,
+        p.phone3 ?? null,
+        p.phone4 ?? null,
         p.email ?? null,
         p.service ?? null,
         p.country ?? null,
@@ -50,13 +60,13 @@ exports.createLead = async (req, res) => {
         p.passportStatus ?? 'With Client',
         p.companyName ?? null,
         p.location ?? null,
-        (p.assignedToId === "" || p.assignedToId === undefined) ? null : p.assignedToId
+        assignedToId
     ];
 
     try {
         const [result] = await db.execute(
-            `INSERT INTO leads (name, phone, email, service, country, lead_source, lead_status, application_status, passport_status, company_name, location, assigned_to_id) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, country, lead_source, lead_status, application_status, passport_status, company_name, location, assigned_to_id) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             fields
         );
         
@@ -97,6 +107,9 @@ exports.updateLead = async (req, res) => {
         const fields = [
             p.name ?? "",
             p.phone ?? "",
+            p.phone2 ?? null,
+            p.phone3 ?? null,
+            p.phone4 ?? null,
             p.email ?? null,
             p.service ?? null,
             p.country ?? null,
@@ -109,10 +122,12 @@ exports.updateLead = async (req, res) => {
             (p.assignedToId === "" || p.assignedToId === undefined) ? null : p.assignedToId,
             id
         ];
+        // console.log("fields",fields);
+        
 
         await db.execute(
             `UPDATE leads SET 
-                name=?, phone=?, email=?, service=?, country=?, 
+                name=?, phone=?, phone2=?, phone3=?, phone4=?, email=?, service=?, country=?, 
                 lead_source=?, lead_status=?, application_status=?, 
                 passport_status=?, company_name=?, location=?, 
                 assigned_to_id=?, last_activity_at=CURRENT_TIMESTAMP 

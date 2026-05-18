@@ -55,8 +55,8 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
 
   const downloadTemplate = (e: React.MouseEvent) => {
     e.preventDefault();
-    const headers = ['Name', 'Phone', 'Email', 'Service', 'Country'];
-    const sampleRow = ['Jane Smith', '9123456780', 'jane.smith@example.com', 'UK Visitor Visa', 'India'];
+    const headers = ['Name', 'Phone', 'Phone2', 'Phone3', 'Phone4', 'Email', 'Service', 'Country', 'Date'];
+    const sampleRow = ['Jane Smith', '9123456780', '9123456781', '9123456782', '9123456783', 'jane.smith@example.com', 'UK Visitor Visa', 'India', '2026-01-15'];
     const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -128,7 +128,7 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
               <h4 className="text-base font-bold text-gray-700">
                   {file ? file.name : 'Click or drag CSV file here'}
               </h4>
-              <p className="text-xs text-gray-500 mt-2">Required Columns: Name, Phone</p>
+              <p className="text-xs text-gray-500 mt-2">Required Columns: Name, Phone. Optional: Date (YYYY-MM-DD)</p>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden"/>
               
               {file && (

@@ -57,6 +57,7 @@ const CompanyDetailsForm = () => {
     const { companyDetails, updateCompanyDetails } = useCrm();
     const { fireToast } = useSwal();
     const [formData, setFormData] = useState<CompanyDetails | null>(companyDetails);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const logoInputRef = useRef<HTMLInputElement>(null);
     const faviconInputRef = useRef<HTMLInputElement>(null);
 
@@ -107,9 +108,16 @@ const CompanyDetailsForm = () => {
     
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (formData) {
-            await updateCompanyDetails(formData);
-            fireToast('success', 'Company details updated successfully!');
+        if (formData && !isSubmitting) {
+            setIsSubmitting(true);
+            try {
+                await updateCompanyDetails(formData);
+                fireToast('success', 'Company details updated successfully!');
+            } catch (error: any) {
+                fireToast('error', error.message || 'Failed to update company details.');
+            } finally {
+                setIsSubmitting(false);
+            }
         }
     };
 
@@ -286,8 +294,10 @@ const CompanyDetailsForm = () => {
             </div>
 
             <div className="flex justify-end space-x-2 mt-8 pt-4 border-t">
-                <button type="button" onClick={() => setFormData(companyDetails)} className="px-4 py-2 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary/90">Submit Details</button>
+                <button type="button" onClick={() => setFormData(companyDetails)} disabled={isSubmitting} className="px-4 py-2 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={isSubmitting} className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-70 flex items-center gap-2">
+                    {isSubmitting ? <><i className="ri-loader-4-line animate-spin"></i> Saving...</> : 'Submit Details'}
+                </button>
             </div>
         </form>
     );
@@ -297,6 +307,7 @@ const EmailApiForm = () => {
     const { emailApiCredentials, updateEmailApiCredentials } = useCrm();
     const { fireToast } = useSwal();
     const [formData, setFormData] = useState<EmailApiCredentials | null>(emailApiCredentials);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         setFormData(emailApiCredentials);
@@ -312,9 +323,16 @@ const EmailApiForm = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if(formData){
-            await updateEmailApiCredentials(formData);
-            fireToast('success', 'Email API credentials updated!');
+        if(formData && !isSubmitting){
+            setIsSubmitting(true);
+            try {
+                await updateEmailApiCredentials(formData);
+                fireToast('success', 'Email API credentials updated!');
+            } catch (error: any) {
+                fireToast('error', error.message || 'Failed to update email credentials.');
+            } finally {
+                setIsSubmitting(false);
+            }
         }
     };
 
@@ -325,20 +343,22 @@ const EmailApiForm = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Email API Name <span className="text-red-500">*</span></label>
-                        <input type="text" name="apiName" value={formData.apiName} onChange={handleChange} className="mt-1 input-field" required />
+                        <input type="text" name="apiName" value={formData.apiName} onChange={handleChange} disabled={isSubmitting} className="mt-1 input-field" required />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">API Url <span className="text-red-500">*</span></label>
-                        <input type="text" name="apiUrl" value={formData.apiUrl} onChange={handleChange} className="mt-1 input-field" required />
+                        <input type="text" name="apiUrl" value={formData.apiUrl} onChange={handleChange} disabled={isSubmitting} className="mt-1 input-field" required />
                     </div>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">API Key <span className="text-red-500">*</span></label>
-                    <input type="password" name="apiKey" value={formData.apiKey} onChange={handleChange} className="mt-1 input-field" required />
+                    <input type="password" name="apiKey" value={formData.apiKey} onChange={handleChange} disabled={isSubmitting} className="mt-1 input-field" required />
                 </div>
             </div>
             <div className="flex justify-start mt-8 pt-4 border-t">
-                <button type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary/90">Submit Details</button>
+                <button type="submit" disabled={isSubmitting} className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-70 flex items-center gap-2">
+                    {isSubmitting ? <><i className="ri-loader-4-line animate-spin"></i> Saving... </> : 'Submit Details'}
+                </button>
             </div>
         </form>
     );
@@ -348,6 +368,7 @@ const MobileApiForm = () => {
     const { mobileApiCredentials, updateMobileApiCredentials } = useCrm();
     const { fireToast } = useSwal();
     const [formData, setFormData] = useState<MobileApiCredentials | null>(mobileApiCredentials);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         setFormData(mobileApiCredentials);
@@ -363,9 +384,16 @@ const MobileApiForm = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if(formData){
-            await updateMobileApiCredentials(formData);
-            fireToast('success', 'Mobile API credentials updated!');
+        if(formData && !isSubmitting){
+            setIsSubmitting(true);
+            try {
+                await updateMobileApiCredentials(formData);
+                fireToast('success', 'Mobile API credentials updated!');
+            } catch (error: any) {
+                fireToast('error', error.message || 'Failed to update mobile credentials.');
+            } finally {
+                setIsSubmitting(false);
+            }
         }
     };
 
@@ -375,23 +403,25 @@ const MobileApiForm = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Mobile API Name <span className="text-red-500">*</span></label>
-                    <input type="text" name="apiName" value={formData.apiName} onChange={handleChange} className="mt-1 input-field" required />
+                    <input type="text" name="apiName" value={formData.apiName} onChange={handleChange} disabled={isSubmitting} className="mt-1 input-field" required />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">From Number <span className="text-red-500">*</span></label>
-                    <input type="text" name="fromNumber" value={formData.fromNumber} onChange={handleChange} className="mt-1 input-field" required />
+                    <input type="text" name="fromNumber" value={formData.fromNumber} onChange={handleChange} disabled={isSubmitting} className="mt-1 input-field" required />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">SID <span className="text-red-500">*</span></label>
-                    <input type="text" name="sid" value={formData.sid} onChange={handleChange} className="mt-1 input-field" required />
+                    <input type="text" name="sid" value={formData.sid} onChange={handleChange} disabled={isSubmitting} className="mt-1 input-field" required />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Token <span className="text-red-500">*</span></label>
-                    <input type="password" name="token" value={formData.token} onChange={handleChange} className="mt-1 input-field" required />
+                    <input type="password" name="token" value={formData.token} onChange={handleChange} disabled={isSubmitting} className="mt-1 input-field" required />
                 </div>
             </div>
             <div className="flex justify-start mt-8 pt-4 border-t">
-                <button type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary/90">Submit Details</button>
+                <button type="submit" disabled={isSubmitting} className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-70 flex items-center gap-2">
+                    {isSubmitting ? <><i className="ri-loader-4-line animate-spin"></i> Saving... </> : 'Submit Details'}
+                </button>
             </div>
         </form>
     );
@@ -640,8 +670,21 @@ const SettingsContent: React.FC<{ activeView: string }> = ({ activeView }) => {
 };
 
 const SettingsPage: React.FC = () => {
-    const [activeView, setActiveView] = useState('company-details');
-    const [expandedCategory, setExpandedCategory] = useState<string | null>('General');
+    const { currentUser } = useCrm();
+    const isSuperAdmin = String(currentUser?.role || '').toLowerCase() === 'super admin';
+    const [activeView, setActiveView] = useState(isSuperAdmin ? 'company-details' : 'crm-config');
+    const [expandedCategory, setExpandedCategory] = useState<string | null>(isSuperAdmin ? 'General' : 'Configuration');
+
+    const visibleSettingsConfig = useMemo(() => {
+        if (isSuperAdmin) return settingsConfig;
+        return settingsConfig.filter(category => category.name !== 'General');
+    }, [isSuperAdmin]);
+
+    useEffect(() => {
+        if (!isSuperAdmin && activeView === 'company-details') {
+            setActiveView('crm-config');
+        }
+    }, [activeView, isSuperAdmin]);
 
     const toggleCategory = (categoryName: string) => {
         setExpandedCategory(prev => (prev === categoryName ? null : categoryName));
@@ -654,7 +697,7 @@ const SettingsPage: React.FC = () => {
                 {/* Settings Sidebar */}
                 <aside className="w-full md:w-64 lg:w-72 flex-shrink-0 self-start md:sticky top-6">
                     <div className="bg-white p-6 rounded-lg shadow-md space-y-2 max-h-[calc(100vh-8rem)] overflow-y-auto thin-scrollbar">
-                        {settingsConfig.map(category => (
+                        {visibleSettingsConfig.map(category => (
                             <div key={category.name}>
                                 <button onClick={() => toggleCategory(category.name)} className="w-full flex justify-between items-center p-2 text-left font-semibold text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
                                     {category.name}

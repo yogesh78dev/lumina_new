@@ -30,7 +30,7 @@ const ForgotPasswordPage: React.FC = () => {
             {/* Right Side - Form */}
             <div className="login-form-section">
                 <div className="mb-8">
-                    <img src={companyDetails.logoUrl || "https://www.luminainfotech.in/assets/img/logo.svg"} alt={companyDetails.companyName} className="h-10 mb-4 rounded-md" />
+                    <img src={companyDetails.logoUrl || "https://www.luminainfotech.com/assets/img/logo.svg"} alt={companyDetails.companyName} className="h-10 mb-4 rounded-md" />
                     <h1 className="text-3xl font-bold text-gray-800">Forgot Password?</h1>
                     <p className="text-gray-500 mt-2">Enter your email and we'll send you a link to reset your password.</p>
                 </div>
@@ -68,7 +68,7 @@ const ForgotPasswordPage: React.FC = () => {
             </div>
         </div>
         <p className="copyright-text text-center mt-8 text-sm text-gray-500">
-            {new Date().getFullYear()} © <a href={companyDetails.website || "https://www.luminainfotech.in/"} target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-primary hover:underline">{companyDetails.companyName || "Lumina Infotech"}</a>. All Rights Reserved
+            {new Date().getFullYear()} © <a href={companyDetails.website || "https://www.luminainfotech.com/"} target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-primary hover:underline">{companyDetails.companyName || "Lumina Infotech"}</a>. All Rights Reserved
         </p>
     </div>
   );

@@ -1,6 +1,6 @@
 
-const API_BASE_URL = 'https://crm.theglobalvisa.in/api';
-// const API_BASE_URL = 'http://localhost:3001/api';
+// const API_BASE_URL = 'https://crm.theglobalvisa.in/api';
+const API_BASE_URL = 'http://localhost:3001/api';
 
 async function request(endpoint: string, options: RequestInit = {}) {
     const token = localStorage.getItem('crm_token');

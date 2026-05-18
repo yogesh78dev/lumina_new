@@ -1,20 +1,27 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lead } from '../../types';
+import { Lead, User } from '../../types';
 import { useCrm } from '../../hooks/useCrm';
 import { allCountries } from '../../utils/countries';
 
 interface LeadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (lead: Omit<Lead, 'id' | 'createdAt'> | Lead) => void;
-  onSaveAndNew: (lead: Omit<Lead, 'id' | 'createdAt'>) => void;
+  onSave: (lead: LeadFormData | Lead) => void;
+  onSaveAndNew: (lead: LeadFormData) => void;
   lead: Lead | null;
 }
 
-const initialFormData: Omit<Lead, 'id' | 'createdAt'> = {
+interface LeadFormData extends Omit<Lead, 'id' | 'createdAt'> {
+    createdAt?: string;
+}
+
+const initialFormData: LeadFormData = {
   name: '',
   phone: '',
+  phone2: '',
+  phone3: '',
+  phone4: '',
   email: '',
   service: '',
   country: '',
@@ -25,30 +32,46 @@ const initialFormData: Omit<Lead, 'id' | 'createdAt'> = {
   applicationStatus: '',
   passportStatus: 'With Client',
   documents: [],
+  assignedToId: '',
+  createdAt: '',
 };
 
 const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAndNew, lead }) => {
-  const [formData, setFormData] = useState(initialFormData);
+  const { leadSources, leadStatuses, applicationStatuses, passportStatuses, users, currentUser } = useCrm();
+  const [formData, setFormData] = useState<LeadFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { leadSources, leadStatuses, applicationStatuses, passportStatuses } = useCrm();
+  const [showAdditionalPhones, setShowAdditionalPhones] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
         if (lead) {
-            setFormData(lead);
+            setFormData({
+                ...lead,
+                assignedToId: lead.assignedToId || '',
+                phone2: lead.phone2 || '',
+                phone3: lead.phone3 || '',
+                phone4: lead.phone4 || '',
+                createdAt: lead.createdAt ? new Date(lead.createdAt).toISOString().split('T')[0] : ''
+            });
+            if (lead.phone2 || lead.phone3 || lead.phone4) {
+                setShowAdditionalPhones(true);
+            }
         } else {
+            const isSuperAdmin = currentUser?.role === 'Super Admin';
             setFormData({
                 ...initialFormData,
                 country: 'India',
                 leadSource: leadSources[0]?.name || '',
                 leadStatus: leadStatuses[0]?.name || '',
                 applicationStatus: applicationStatuses[0]?.name || '',
-                passportStatus: passportStatuses[0]?.name || 'With Client'
+                passportStatus: passportStatuses[0]?.name || 'With Client',
+                assignedToId: isSuperAdmin ? '' : (currentUser?.id || ''),
+                createdAt: new Date().toISOString().split('T')[0]
             });
         }
         setIsSubmitting(false);
     }
-  }, [lead, isOpen, leadSources, leadStatuses, applicationStatuses, passportStatuses]);
+  }, [lead, isOpen, leadSources, leadStatuses, applicationStatuses, passportStatuses, currentUser]);
 
   if (!isOpen) return null;
 
@@ -64,7 +87,8 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
         leadSource: leadSources[0]?.name || '',
         leadStatus: leadStatuses[0]?.name || '',
         applicationStatus: applicationStatuses[0]?.name || '',
-        passportStatus: passportStatuses[0]?.name || 'With Client'
+        passportStatus: passportStatuses[0]?.name || 'With Client',
+        createdAt: new Date().toISOString().split('T')[0]
       });
   }
 
@@ -110,9 +134,38 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
               <input type="text" name="name" value={formData.name} onChange={handleChange} className="mt-1 input-field" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Phone Number <span className="text-primary">*</span></label>
+              <label className="block text-sm font-medium text-gray-700">Phone Number 1 <span className="text-primary">*</span></label>
               <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="mt-1 input-field" required />
             </div>
+
+            <div className="md:col-span-full">
+                <button 
+                    type="button" 
+                    onClick={() => setShowAdditionalPhones(!showAdditionalPhones)}
+                    className="text-xs font-semibold text-primary flex items-center gap-1 hover:underline"
+                >
+                    <i className={showAdditionalPhones ? "ri-subtract-line" : "ri-add-line"}></i>
+                    {showAdditionalPhones ? "Hide Additional Contact Numbers" : "Add More Contact Numbers (Up to 4)"}
+                </button>
+            </div>
+
+            {showAdditionalPhones && (
+                <>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Phone Number 2</label>
+                        <input type="tel" name="phone2" value={formData.phone2} onChange={handleChange} className="mt-1 input-field" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Phone Number 3</label>
+                        <input type="tel" name="phone3" value={formData.phone3} onChange={handleChange} className="mt-1 input-field" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Phone Number 4</label>
+                        <input type="tel" name="phone4" value={formData.phone4} onChange={handleChange} className="mt-1 input-field" />
+                    </div>
+                </>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700">Email Address</label>
               <input type="email" name="email" value={formData.email} onChange={handleChange} className="mt-1 input-field" />
@@ -158,6 +211,35 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
                 <select name="passportStatus" value={formData.passportStatus} onChange={handleChange} className="mt-1 input-field">
                     {passportStatuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                 </select>
+            </div>
+            <div className="md:col-span-1 lg:col-span-1">
+                <label className="block text-sm font-medium text-gray-700">Assign To Agent</label>
+                <select 
+                    name="assignedToId" 
+                    value={formData.assignedToId} 
+                    onChange={handleChange} 
+                    className="mt-1 input-field"
+                    disabled={currentUser?.role !== 'Super Admin'}
+                >
+                    <option value="">-- Unassigned --</option>
+                    {users.map(u => (
+                        <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                    ))}
+                </select>
+                {currentUser?.role !== 'Super Admin' && (
+                    <p className="mt-1 text-xs text-gray-500 italic">Assigning restricted to Super Admins. Defaults to yourself or unassigned.</p>
+                )}
+            </div>
+            <div className="md:col-span-1 lg:col-span-1">
+                <label className="block text-sm font-medium text-gray-700">Lead Date (Manual Entry)</label>
+                <input 
+                    type="date" 
+                    name="createdAt" 
+                    value={formData.createdAt} 
+                    onChange={handleChange} 
+                    className="mt-1 input-field"
+                />
+                <p className="mt-1 text-[10px] text-gray-500 italic">Set this for backdated leads. Leave as today if not sure.</p>
             </div>
           </div>
           <div className="flex justify-end space-x-3 bg-gray-50 p-4 rounded-b-lg flex-shrink-0">

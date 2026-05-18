@@ -13,7 +13,7 @@ export const usePermissions = () => {
         const roleName = String(currentUser.role).toLowerCase();
 
         // 1. Root Level Overrides - System Integrity Protection
-        if (roleName === 'super admin' || roleName === 'admin') {
+        if (roleName === 'super admin') {
             return true;
         }
 

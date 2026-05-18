@@ -74,7 +74,8 @@ const CustomerFormPage: React.FC = () => {
         setFormData({
             ...getInitialFormData(vendors, users),
             customerId: generateNextCustomerId(),
-            passportStatus: passportStatuses[0]?.name || 'With Client'
+            passportStatus: passportStatuses[0]?.name || 'With Client',
+            closeDate: new Date().toISOString().split('T')[0]
         });
     };
 

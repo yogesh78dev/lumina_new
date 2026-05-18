@@ -18,8 +18,11 @@ import { capitalizeName } from '../utils/formatters';
 import Tooltip from '../components/common/Tooltip';
 
 
+import { allCountries } from '../utils/countries';
+
 const TABS = [
   { key: 'All', name: 'All Leads' },
+  { key: 'Unassigned', name: 'Unassigned' },
   { key: 'New Lead', name: 'New' },
   { key: 'Follow-up', name: 'Follow Up' },
   { key: 'Won', name: 'Won' },
@@ -32,6 +35,7 @@ const ALL_LEAD_COLUMNS: LeadTableColumn[] = [
     { key: 'name', label: 'First Name' },
     { key: 'phone', label: 'Phone Number' },
     { key: 'email', label: 'Email' },
+    { key: 'country', label: 'Country' },
     { key: 'service', label: 'Service' },
     { key: 'notes', label: 'Notes' },
     { key: 'reminders', label: 'Reminders' },
@@ -49,6 +53,7 @@ const DEFAULT_VISIBLE_COLUMNS: LeadTableColumn[] = [
     { key: 'name', label: 'First Name' },
     { key: 'phone', label: 'Phone Number' },
     { key: 'email', label: 'Email' },
+    { key: 'country', label: 'Country' },
     { key: 'service', label: 'Service' },
     { key: 'notes', label: 'Notes' },
     { key: 'reminders', label: 'Reminders' },
@@ -96,6 +101,7 @@ const LeadsPage: React.FC = () => {
 
   const [agentFilter, setAgentFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [countryFilter, setCountryFilter] = useState('all');
   
   const [isColumnsModalOpen, setIsColumnsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -111,25 +117,34 @@ const LeadsPage: React.FC = () => {
 
   const activeStatus = searchParams.get('status') || TABS[0].key;
 
+  const countriesForFilter = useMemo(() => {
+    const fromMaster = allCountries.map(c => c.name);
+    const fromLeads = leads.map(l => l.country).filter(Boolean) as string[];
+    return Array.from(new Set([...fromMaster, ...fromLeads])).sort();
+  }, [leads]);
+
   const filteredLeads = useMemo(() => {
     let leadsToFilter = leads;
 
     if (view === 'table') {
-      if (activeStatus !== 'All') {
+      if (activeStatus === 'Unassigned') {
+        leadsToFilter = leadsToFilter.filter(lead => !lead.assignedToId || Number(lead.assignedToId) === 0);
+      } else if (activeStatus !== 'All') {
         leadsToFilter = leadsToFilter.filter(lead => lead.leadStatus === activeStatus);
       }
     }
     
     return leadsToFilter.filter(lead => 
-      (agentFilter === 'all' || String(lead.assignedToId) === agentFilter) &&
+      (agentFilter === 'all' || (agentFilter === 'unassigned' ? (!lead.assignedToId || Number(lead.assignedToId) === 0) : String(lead.assignedToId) === agentFilter)) &&
       (sourceFilter === 'all' || lead.leadSource === sourceFilter) &&
+      (countryFilter === 'all' || lead.country === countryFilter) &&
       (
         lead.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         lead.phone.includes(searchTerm) ||
         (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase()))
       )
     );
-  }, [leads, activeStatus, searchTerm, view, agentFilter, sourceFilter]);
+  }, [leads, activeStatus, searchTerm, view, agentFilter, sourceFilter, countryFilter]);
   
   const { items: sortedLeads, requestSort, sortConfig } = useSorting<Lead>(filteredLeads, { key: 'createdAt', direction: 'descending'});
 
@@ -312,6 +327,7 @@ const LeadsPage: React.FC = () => {
                         {isSuperAdmin && (
                             <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} className="filter-dropdown w-full sm:w-40">
                                 <option value="all">All Agents</option>
+                                <option value="unassigned">Unassigned</option>
                                 {users.map(user => (
                                     <option key={user.id} value={String(user.id)}>{capitalizeName(user.name)}</option>
                                 ))}
@@ -321,6 +337,12 @@ const LeadsPage: React.FC = () => {
                             <option value="all">All Sources</option>
                             {leadSources.map(source => (
                                 <option key={source.id} value={source.name}>{source.name}</option>
+                            ))}
+                        </select>
+                        <select value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)} className="filter-dropdown w-full sm:w-40">
+                            <option value="all">All Countries</option>
+                            {countriesForFilter.map(country => (
+                                <option key={country} value={country}>{country}</option>
                             ))}
                         </select>
                     </div>

@@ -23,6 +23,7 @@ const initialFormData: Omit<User, 'id'> = {
 
 const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user }) => {
   const [formData, setFormData] = useState(initialFormData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { roles } = useCrm();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState('');
@@ -48,6 +49,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user }) 
     setPassword('');
     setConfirmPassword('');
     setPasswordError('');
+    setIsSubmitting(false);
   }, [user, isOpen, roles]);
 
   if (!isOpen) return null;
@@ -82,8 +84,10 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user }) 
     setFormData(prev => ({ ...prev, imageUrl: '' }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    
     setPasswordError('');
 
     if (!user && !password) {
@@ -96,14 +100,19 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user }) 
         return;
     }
     
-    // Create a mutable copy to potentially add password
-    const userToSave: any = { ...formData };
-    
-    if (password) {
-        userToSave.password = password;
-    }
+    setIsSubmitting(true);
+    try {
+        // Create a mutable copy to potentially add password
+        const userToSave: any = { ...formData };
+        
+        if (password) {
+            userToSave.password = password;
+        }
 
-    onSave(userToSave);
+        await onSave(userToSave);
+    } finally {
+        setIsSubmitting(false);
+    }
   };
   
   const avatarSrc = formData.imageUrl || generateAvatar(formData.name);
@@ -204,11 +213,11 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user }) 
             </div>
           </div>
           <div className="flex justify-end space-x-3 bg-gray-50 p-4 rounded-b-lg flex-shrink-0">
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50">
               Cancel
             </button>
-            <button type="submit" className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
-              Save User
+            <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-70 flex items-center gap-2">
+              {isSubmitting ? <><i className="ri-loader-4-line animate-spin"></i> Saving...</> : 'Save User'}
             </button>
           </div>
         </form>

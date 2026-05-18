@@ -24,34 +24,44 @@ exports.importLeads = async (req, res) => {
         await connection.beginTransaction();
 
         let insertedCount = 0;
+        const cleanPhone = (p) => {
+            if (!p) return null;
+            let phoneStr = String(p).trim();
+            if (phoneStr.includes('E+') || phoneStr.includes('e+')) {
+                phoneStr = Number(phoneStr).toLocaleString('fullwide', { useGrouping: false });
+            }
+            return phoneStr.replace(/\s+/g, '');
+        };
+
         for (const lead of leads) {
             // Basic validation
             if (!lead.name || !lead.phone) continue;
 
-            let phone = String(lead.phone).trim();
+            const phone = cleanPhone(lead.phone);
+            const phone2 = cleanPhone(lead.phone2);
+            const phone3 = cleanPhone(lead.phone3);
+            const phone4 = cleanPhone(lead.phone4);
 
-            // Convert scientific notation
-            if (phone.includes('E+') || phone.includes('e+')) {
-                phone = Number(phone).toLocaleString('fullwide', {
-                    useGrouping: false
-                });
-            }
-
-            // Remove spaces
-            phone = phone.replace(/\s+/g, '')
+            // Handle date
+            const createdAt = lead.createdAt || lead.created_at || lead.Date || lead.date || null;
 
             const [result] = await connection.execute(
-                `INSERT INTO leads (name, phone, email, service, country, lead_source, lead_status, assigned_to_id) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, country, lead_source, lead_status, assigned_to_id, created_at, last_activity_at) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))`,
                 [
                     lead.name, 
                     phone, 
+                    phone2,
+                    phone3,
+                    phone4,
                     lead.email || null, 
                     lead.service || defaults.service || null,
                     lead.country || defaults.country || 'India',
                     defaults.leadSource || 'Import',
                     defaults.leadStatus || 'New Lead',
-                    defaults.assignedToId || null
+                    defaults.assignedToId || null,
+                    createdAt,
+                    createdAt
                 ]
             );
 

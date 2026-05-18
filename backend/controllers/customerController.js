@@ -33,6 +33,13 @@ exports.getAll = async (req, res) => {
 
 exports.create = async (req, res) => {
     const p = req.body;
+    const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
+    
+    // Default sale_by_id to current user if not provided and NOT super admin
+    let saleById = (p.saleById === "" || p.saleById === undefined) ? null : p.saleById;
+    if (!saleById && !isSuperAdmin) {
+        saleById = req.user.id;
+    }
     
     const fields = [
         p.customerId ?? null,
@@ -44,7 +51,7 @@ exports.create = async (req, res) => {
         p.gstNumber ?? null,
         p.location ?? null,
         (p.vendorId === "" || p.vendorId === undefined) ? null : p.vendorId,
-        (p.saleById === "" || p.saleById === undefined) ? null : p.saleById,
+        saleById,
         p.serviceType ?? null,
         p.closeDate ?? null,
         p.action ?? null,
