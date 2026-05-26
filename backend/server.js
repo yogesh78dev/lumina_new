@@ -47,6 +47,23 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Health Check Route
+app.get('/', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: '🚀 Lumina CRM Backend is running',
+        time: new Date()
+    });
+});
+
+// API Health Check
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'API is working ✅'
+    });
+})
+
 // Routing Layer
 app.use('/api/auth', authLimiter, authRoutes);
 
