@@ -3,6 +3,7 @@ import React from 'react';
 import { Lead } from '../../types';
 import { useCrm } from '../../hooks/useCrm';
 import { generateAvatar } from '../../utils/avatar';
+import { formatDateDDMMYYYY } from '../../utils/formatters';
 import Tooltip from '../common/Tooltip';
 
 interface LeadCardProps {
@@ -64,7 +65,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onClick }) => {
                   {lead.name}
               </h4>
               <p className="text-[10px] text-gray-400 mt-0.5 font-mono">
-                  {new Date(lead.createdAt).toLocaleDateString([], {month:'short', day:'numeric'})}
+                  {formatDateDDMMYYYY(lead.createdAt)}
               </p>
           </div>
           

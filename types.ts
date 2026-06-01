@@ -106,6 +106,7 @@ export interface Lead {
   notesCount?: number;
   remindersCount?: number;
   latestNote?: string;
+  remarks?: string;
 }
 
 export interface Customer {

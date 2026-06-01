@@ -117,7 +117,7 @@ const QuoteBuilderModal: React.FC = () => {
 
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex justify-center items-center p-4" onClick={closeQuoteBuilder}>
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[11000] flex justify-center items-center p-4" onClick={closeQuoteBuilder}>
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl relative max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center p-4 border-b">
                     <div>

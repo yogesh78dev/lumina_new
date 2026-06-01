@@ -2,7 +2,7 @@
 import React from 'react';
 import { Lead } from '../../types';
 import { useCrm } from '../../hooks/useCrm';
-import { capitalizeName } from '../../utils/formatters';
+import { capitalizeName, formatDateDDMMYYYY } from '../../utils/formatters';
 
 interface LeadProfileSidebarProps {
     lead: Lead;
@@ -72,17 +72,7 @@ const LeadProfileSidebar: React.FC<LeadProfileSidebarProps> = ({ lead }) => {
                     <DetailRow icon="ri-briefcase-line" label="Service Interested" value={lead.service} />
                     <DetailRow icon="ri-links-line" label="Source" value={lead.leadSource} />
                     
-                    {/* Status Highlights */}
-                    <div className="mt-2 space-y-2">
-                        <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
-                            <p className="text-[10px] text-purple-600 font-bold uppercase mb-1">Application Stage</p>
-                            <p className="text-sm font-semibold text-purple-900">{lead.applicationStatus || 'Pending'}</p>
-                        </div>
-                        <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100">
-                            <p className="text-[10px] text-indigo-600 font-bold uppercase mb-1">Passport Status</p>
-                            <p className="text-sm font-semibold text-indigo-900">{lead.passportStatus || 'Unknown'}</p>
-                        </div>
-                    </div>
+                    {/* Application Status and Passport Status are intentionally hidden for now. */}
                 </div>
             </div>
 
@@ -99,7 +89,7 @@ const LeadProfileSidebar: React.FC<LeadProfileSidebarProps> = ({ lead }) => {
                     </div>
                     <div className="flex justify-between items-center py-2 text-xs text-gray-500 border-b border-gray-50 last:border-0">
                         <span>Created On</span>
-                        <span className="font-medium text-gray-700">{new Date(lead.createdAt).toLocaleDateString()}</span>
+                        <span className="font-medium text-gray-700">{formatDateDDMMYYYY(lead.createdAt)}</span>
                     </div>
                     <div className="flex justify-between items-center py-2 text-xs text-gray-500 border-b border-gray-50 last:border-0">
                         <span>Last Activity</span>

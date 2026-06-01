@@ -3,14 +3,20 @@ const db = require('../db');
 const { logAction } = require('../utils/logger');
 const { createNotification } = require('./notificationController');
 
+const toSqlDate = (input) => {
+    if (!input) return null;
+    const d = new Date(input);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString().split('T')[0];
+};
+
 exports.getAllLeads = async (req, res) => {
     try {
         const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
         let sql = `
             SELECT 
                 l.id, l.name, l.phone, l.phone2, l.phone3, l.phone4, l.email, l.service, l.country, 
-                l.lead_source AS leadSource, l.lead_status AS leadStatus, 
-                l.application_status AS applicationStatus, l.passport_status AS passportStatus, 
+                l.lead_source AS leadSource, l.lead_status AS leadStatus,
                 l.company_name AS companyName, l.location, l.assigned_to_id AS assignedToId, 
                 l.last_activity_at AS lastActivityAt, l.created_at AS createdAt,
                 (SELECT COUNT(*) FROM lead_notes WHERE lead_id = l.id) AS notesCount,
@@ -38,6 +44,7 @@ exports.getAllLeads = async (req, res) => {
 exports.createLead = async (req, res) => {
     const p = req.body;
     const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
+    const leadDate = toSqlDate(p.createdAt);
     
     // Default assigned_to_id to current user if not provided and NOT super admin
     let assignedToId = (p.assignedToId === "" || p.assignedToId === undefined) ? null : p.assignedToId;
@@ -56,19 +63,25 @@ exports.createLead = async (req, res) => {
         p.country ?? null,
         p.leadSource ?? null,
         p.leadStatus ?? 'New Lead',
-        p.applicationStatus ?? null,
-        p.passportStatus ?? 'With Client',
         p.companyName ?? null,
         p.location ?? null,
-        assignedToId
+        assignedToId,
+        leadDate
     ];
 
     try {
         const [result] = await db.execute(
-            `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, country, lead_source, lead_status, application_status, passport_status, company_name, location, assigned_to_id) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, country, lead_source, lead_status, company_name, location, assigned_to_id, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
             fields
         );
+
+        if (p.remarks && String(p.remarks).trim()) {
+            await db.execute(
+                'INSERT INTO lead_notes (lead_id, content, author_name) VALUES (?, ?, ?)',
+                [result.insertId, String(p.remarks).trim(), req.user.name || 'System']
+            );
+        }
         
         await logAction(req.user.id, req.user.name, req.user.role, `Created new lead: ${p.name}`);
         
@@ -115,11 +128,10 @@ exports.updateLead = async (req, res) => {
             p.country ?? null,
             p.leadSource ?? null,
             p.leadStatus ?? 'New Lead',
-            p.applicationStatus ?? null,
-            p.passportStatus ?? 'With Client',
             p.companyName ?? null,
             p.location ?? null,
             (p.assignedToId === "" || p.assignedToId === undefined) ? null : p.assignedToId,
+            toSqlDate(p.createdAt),
             id
         ];
         // console.log("fields",fields);
@@ -128,12 +140,25 @@ exports.updateLead = async (req, res) => {
         await db.execute(
             `UPDATE leads SET 
                 name=?, phone=?, phone2=?, phone3=?, phone4=?, email=?, service=?, country=?, 
-                lead_source=?, lead_status=?, application_status=?, 
-                passport_status=?, company_name=?, location=?, 
-                assigned_to_id=?, last_activity_at=CURRENT_TIMESTAMP 
+                lead_source=?, lead_status=?, company_name=?, location=?, 
+                assigned_to_id=?, created_at=COALESCE(?, created_at), last_activity_at=CURRENT_TIMESTAMP 
              WHERE id=?`,
             fields
         );
+
+        if (p.remarks && String(p.remarks).trim()) {
+            const remarkText = String(p.remarks).trim();
+            const [[latestNote]] = await db.execute(
+                'SELECT content FROM lead_notes WHERE lead_id = ? ORDER BY created_at DESC LIMIT 1',
+                [id]
+            );
+            if (!latestNote || String(latestNote.content || '').trim() !== remarkText) {
+                await db.execute(
+                    'INSERT INTO lead_notes (lead_id, content, author_name) VALUES (?, ?, ?)',
+                    [id, remarkText, req.user.name || 'System']
+                );
+            }
+        }
         
         await logAction(req.user.id, req.user.name, req.user.role, `Updated lead information for: ${p.name}`);
         

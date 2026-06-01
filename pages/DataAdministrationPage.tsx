@@ -42,11 +42,24 @@ const ImportDataContent: React.FC = () => {
 
     const downloadTemplate = (e: React.MouseEvent) => {
         e.preventDefault();
-        const headers = ['Name', 'Phone', 'Email', 'Service', 'Country'];
-        const sampleRow = ['John Doe', '9876543210', 'john@example.com', 'Dubai Visa', 'India'];
-        const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
+        const toExcelText = (value: string) => `="${String(value).replace(/"/g, '""')}"`;
+        const toCsvCell = (value: string) => {
+            const stringVal = String(value ?? '');
+            if (stringVal.includes(',') || stringVal.includes('"') || stringVal.includes('\n')) {
+                return `"${stringVal.replace(/"/g, '""')}"`;
+            }
+            return stringVal;
+        };
+        const headers = ['Name', 'Phone', 'Email', 'Service', 'Country', 'Date', 'Assign To Agent', 'Lead Source', 'Notes/Remark'];
+        const sampleRow1 = ['Jane Smith', toExcelText('919500391807|971528514124'), 'jane.smith@example.com', 'UK Visitor Visa', 'India', toExcelText('15-01-2026'), 'Aarav Patel', 'Google', 'Interested client. Call tomorrow.'];
+        const sampleRow2 = ['John Doe', toExcelText('919500391807,971528514124'), 'john.doe@example.com', 'Tourist Visa', 'India', toExcelText('16-01-2026'), 'Riya Shah', 'Website Inquiry', 'Asked for pricing details.'];
+        const csvContent = [
+            headers.map(toCsvCell).join(','),
+            sampleRow1.map(toCsvCell).join(','),
+            sampleRow2.map(toCsvCell).join(',')
+        ].join('\n');
         
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
@@ -60,7 +73,7 @@ const ImportDataContent: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!file) {
-            fireToast('warning', 'Please select a CSV file to import.');
+            fireToast('warning', 'Please select a CSV/XLSX/XLS file to import.');
             return;
         }
 
@@ -73,8 +86,8 @@ const ImportDataContent: React.FC = () => {
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
-        } catch (err) {
-            fireToast('error', 'Import failed.');
+        } catch (err: any) {
+            fireToast('error', err?.message || 'Import failed.');
         } finally {
             setIsSubmitting(false);
         }
@@ -85,7 +98,7 @@ const ImportDataContent: React.FC = () => {
             <div className="mb-6 flex justify-between items-center">
                 <div>
                     <h3 className="text-xl font-bold text-gray-800">Bulk Import Leads</h3>
-                    <p className="text-sm text-gray-500">Upload a CSV file to populate your pipeline instantly.</p>
+                    <p className="text-sm text-gray-500">Upload CSV/XLSX/XLS file to populate your pipeline instantly.</p>
                 </div>
                 <button 
                     onClick={downloadTemplate}
@@ -99,18 +112,18 @@ const ImportDataContent: React.FC = () => {
                 <div className="bg-gray-50 p-6 rounded-xl border border-dashed border-gray-300">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Upload File (.csv)</label>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Upload File (.csv, .xlsx, .xls)</label>
                             <div 
                                 onClick={() => fileInputRef.current?.click()}
                                 className="relative group cursor-pointer border-2 border-dashed border-gray-200 bg-white rounded-xl p-8 text-center hover:border-primary hover:bg-primary/5 transition-all"
                             >
-                                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".csv" />
+                                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".csv,.xlsx,.xls" />
                                 <div className="flex flex-col items-center">
                                     <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                                         <i className="ri-upload-cloud-2-line text-2xl"></i>
                                     </div>
-                                    <p className="text-sm font-bold text-gray-700">{fileName || 'Click to select or drag and drop CSV file'}</p>
-                                    <p className="text-xs text-gray-400 mt-1">Columns: Name, Phone, Email, Service, Country</p>
+                                    <p className="text-sm font-bold text-gray-700">{fileName || 'Click to select or drag and drop CSV/XLSX/XLS file'}</p>
+                                    <p className="text-xs text-gray-400 mt-1">Columns: Name, Phone, Email, Service, Country, Date (DD-MM-YYYY), Assign To Agent, Lead Source, Notes/Remark</p>
                                 </div>
                             </div>
                         </div>
@@ -124,7 +137,7 @@ const ImportDataContent: React.FC = () => {
                         </div>
                         
                         <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Default Pipeline Status</label>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Default Lead Status</label>
                             <select name="leadStatus" value={defaults.leadStatus} onChange={handleDefaultsChange} className="input-field" required>
                                 {leadStatuses.map(status => <option key={status.id} value={status.name}>{status.name}</option>)}
                             </select>

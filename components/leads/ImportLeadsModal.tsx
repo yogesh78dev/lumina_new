@@ -1,5 +1,6 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useCrm } from '../../hooks/useCrm';
 import { useSwal } from '../../hooks/useSwal';
 import { capitalizeName } from '../../utils/formatters';
@@ -16,6 +17,8 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [importError, setImportError] = useState('');
+  const errorPanelRef = useRef<HTMLDivElement>(null);
 
   const [defaults, setDefaults] = useState({
     assignedToId: String(users[0]?.id || ''),
@@ -30,10 +33,12 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
   
   const handleFileSelect = (selectedFile: File | null) => {
     if (selectedFile) {
-        if (selectedFile.name.toLowerCase().endsWith('.csv')) {
+        const lowerName = selectedFile.name.toLowerCase();
+        if (lowerName.endsWith('.csv') || lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
             setFile(selectedFile);
+            setImportError('');
         } else {
-            fireToast('error', 'Only CSV files are supported.');
+            fireToast('error', 'Only CSV, XLSX, and XLS files are supported.');
         }
     }
   };
@@ -51,15 +56,51 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     handleFileSelect(e.target.files?.[0] || null);
+    // Allow re-selecting the same filename after validation errors.
+    e.target.value = '';
   };
+
+  useEffect(() => {
+    if (importError && errorPanelRef.current) {
+      errorPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      errorPanelRef.current.focus();
+    }
+  }, [importError]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFile(null);
+      setImportError('');
+      setIsDragging(false);
+      setIsSubmitting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [isOpen]);
 
   const downloadTemplate = (e: React.MouseEvent) => {
     e.preventDefault();
-    const headers = ['Name', 'Phone', 'Phone2', 'Phone3', 'Phone4', 'Email', 'Service', 'Country', 'Date'];
-    const sampleRow = ['Jane Smith', '9123456780', '9123456781', '9123456782', '9123456783', 'jane.smith@example.com', 'UK Visitor Visa', 'India', '2026-01-15'];
-    const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
+    const toExcelText = (value: string) => `="${String(value).replace(/"/g, '""')}"`;
+    const toCsvCell = (value: string) => {
+      const stringVal = String(value ?? '');
+      if (stringVal.includes(',') || stringVal.includes('"') || stringVal.includes('\n')) {
+        return `"${stringVal.replace(/"/g, '""')}"`;
+      }
+      return stringVal;
+    };
+    const headers = ['Name', 'Phone', 'Email', 'Service', 'Country', 'Date', 'Assign To Agent', 'Lead Source', 'Notes/Remark'];
+    const sampleRow1 = ['Jane Smith', toExcelText('919500391807|971528514124'), 'jane.smith@example.com', 'UK Visitor Visa', 'India', toExcelText('15-01-2026'), 'Aarav Patel', 'Google', 'Interested client. Call tomorrow.'];
+    const sampleRow2 = ['John Doe', toExcelText('919500391807,971528514124'), 'john.doe@example.com', 'Tourist Visa', 'India', toExcelText('16-01-2026'), 'Riya Shah', 'Website Inquiry', 'Asked for pricing details.'];
+    const sampleRow3 = ['Aman Verma', toExcelText('919500391807'), 'aman.verma@example.com', 'Work Permit', 'United Arab Emirates', toExcelText('17-01-2026'), 'Kabir Mehta', 'IVR', 'Follow up next week.'];
+    const csvContent = [
+      headers.map(toCsvCell).join(','),
+      sampleRow1.map(toCsvCell).join(','),
+      sampleRow2.map(toCsvCell).join(','),
+      sampleRow3.map(toCsvCell).join(',')
+    ].join('\n');
     
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
@@ -78,16 +119,18 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
     }
 
     setIsSubmitting(true);
+    setImportError('');
     try {
         await importLeads(file, defaults);
         fireToast('success', 'Import processed successfully!');
         setFile(null);
+        setImportError('');
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
         onClose();
     } catch (err: any) {
-        fireToast('error', err.message || 'Import failed.');
+        setImportError(err?.message || 'Import failed.');
     } finally {
         setIsSubmitting(false);
     }
@@ -95,13 +138,13 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-[100] flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
+  const modalContent = (
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-[11000] flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl relative max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center p-5 border-b bg-gray-50/50">
           <div>
             <h3 className="text-xl font-bold text-gray-800">Bulk Import Leads</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Upload CSV to populate your pipeline</p>
+            <p className="text-xs text-gray-500 mt-0.5">Upload CSV or Excel to populate your pipeline</p>
           </div>
           <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-800 hover:bg-gray-100 transition-all">
             <i className="ri-close-line text-2xl"></i>
@@ -110,6 +153,27 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
 
         <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto">
           <div className="p-6 space-y-8">
+            {importError && (
+              <div
+                ref={errorPanelRef}
+                tabIndex={-1}
+                className="rounded-xl border border-red-200 bg-red-50 p-4 outline-none"
+              >
+                <div className="flex items-start gap-3">
+                  <i className="ri-error-warning-line text-red-600 text-xl mt-0.5"></i>
+                  <div className="min-w-0 w-full">
+                    <h4 className="text-sm font-bold text-red-800">Import Validation Failed</h4>
+                    <p className="text-xs text-red-700 mt-1">
+                      Please fix the rows listed below and upload again. No leads were saved.
+                    </p>
+                    <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-white border border-red-100 p-3 text-[11px] text-red-900">
+{importError}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Dropzone */}
             <div 
               className={`border-2 border-dashed rounded-xl p-10 text-center transition-all duration-200 cursor-pointer ${
@@ -126,10 +190,10 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
                   <i className="ri-upload-cloud-2-line text-3xl"></i>
               </div>
               <h4 className="text-base font-bold text-gray-700">
-                  {file ? file.name : 'Click or drag CSV file here'}
+                  {file ? file.name : 'Click or drag CSV/XLSX/XLS file here'}
               </h4>
-              <p className="text-xs text-gray-500 mt-2">Required Columns: Name, Phone. Optional: Date (YYYY-MM-DD)</p>
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden"/>
+              <p className="text-xs text-gray-500 mt-2">Required: Name, Phone. Multiple phones allowed in Phone using `|` or `,`. Date format: DD-MM-YYYY (e.g. 01-06-2026). Country must be a valid country name (Unknown allowed). Assign To Agent and Lead Source must match portal values. Notes/Remark is optional.</p>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv,.xlsx,.xls" className="hidden"/>
               
               {file && (
                   <div className="mt-4 flex items-center justify-center gap-2">
@@ -161,7 +225,7 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
             {/* Default Settings */}
             <div className="bg-gray-50/50 p-6 rounded-xl border border-gray-100 space-y-6">
                 <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                    <i className="ri-settings-3-line"></i> Pipeline Defaults
+                    <i className="ri-settings-3-line"></i> Lead Defaults
                 </h4>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -246,6 +310,8 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
       `}</style>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default ImportLeadsModal;

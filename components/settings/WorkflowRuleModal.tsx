@@ -72,7 +72,7 @@ const WorkflowRuleModal: React.FC<WorkflowRuleModalProps> = ({ rule }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={closeWorkflowModal}>
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[11000] flex justify-center items-center p-4" onClick={closeWorkflowModal}>
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit}>
                     <div className="p-5 border-b">

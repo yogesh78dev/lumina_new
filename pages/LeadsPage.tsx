@@ -14,20 +14,12 @@ import { useSorting } from '../hooks/useSorting';
 import ImportLeadsModal from '../components/leads/ImportLeadsModal';
 import ImportHistoryModal from '../components/leads/ImportHistoryModal';
 import SearchInput from '../components/common/SearchInput';
+import SearchableDropdown from '../components/common/SearchableDropdown';
 import { capitalizeName } from '../utils/formatters';
 import Tooltip from '../components/common/Tooltip';
 
 
 import { allCountries } from '../utils/countries';
-
-const TABS = [
-  { key: 'All', name: 'All Leads' },
-  { key: 'Unassigned', name: 'Unassigned' },
-  { key: 'New Lead', name: 'New' },
-  { key: 'Follow-up', name: 'Follow Up' },
-  { key: 'Won', name: 'Won' },
-  { key: 'Lost', name: 'Lost' }
-];
 
 const ALL_LEAD_COLUMNS: LeadTableColumn[] = [
     { key: 'id_serial', label: 'ID' },
@@ -38,12 +30,12 @@ const ALL_LEAD_COLUMNS: LeadTableColumn[] = [
     { key: 'country', label: 'Country' },
     { key: 'service', label: 'Service' },
     { key: 'notes', label: 'Notes' },
+    { key: 'leadStatus', label: 'Lead Status' },
     { key: 'reminders', label: 'Reminders' },
     { key: 'leadSource', label: 'Lead Source' },
     { key: 'assignedToId', label: 'Lead Assign' },
-    { key: 'leadStatus', label: 'Pipeline Status' },
-    { key: 'applicationStatus', label: 'Application Status' },
-    { key: 'passportStatus', label: 'Passport Status' },
+    // { key: 'applicationStatus', label: 'Application Status' },
+    // { key: 'passportStatus', label: 'Passport Status' },
     { key: 'actions', label: 'Action' },
 ];
 
@@ -56,11 +48,11 @@ const DEFAULT_VISIBLE_COLUMNS: LeadTableColumn[] = [
     { key: 'country', label: 'Country' },
     { key: 'service', label: 'Service' },
     { key: 'notes', label: 'Notes' },
+    { key: 'leadStatus', label: 'Lead Status' },
     { key: 'reminders', label: 'Reminders' },
     { key: 'leadSource', label: 'Lead Source' },
     { key: 'assignedToId', label: 'Lead Assign' },
-    { key: 'leadStatus', label: 'Pipeline Status' },
-    { key: 'applicationStatus', label: 'Application Status' },
+    // { key: 'applicationStatus', label: 'Application Status' },
     { key: 'actions', label: 'Action' },
 ];
 
@@ -102,6 +94,7 @@ const LeadsPage: React.FC = () => {
   const [agentFilter, setAgentFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [countryFilter, setCountryFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('');
   
   const [isColumnsModalOpen, setIsColumnsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -115,36 +108,72 @@ const LeadsPage: React.FC = () => {
 
   const isSuperAdmin = currentUser && String(currentUser.role).toLowerCase() === 'super admin';
 
-  const activeStatus = searchParams.get('status') || TABS[0].key;
+  const statusTabs = useMemo(() => {
+    const baseTabs = [
+      { key: 'All', name: 'All Leads' },
+      { key: 'Unassigned', name: 'Unassigned' }
+    ];
+    const dynamicStatusTabs = leadStatuses.map(status => ({
+      key: status.name,
+      name: status.name
+    }));
+    return [...baseTabs, ...dynamicStatusTabs];
+  }, [leadStatuses]);
+
+  const activeStatus = searchParams.get('status') || statusTabs[0].key;
+  const isUnassignedLead = (lead: Lead) => {
+    const assignedValue = String(lead.assignedToId ?? '').trim().toLowerCase();
+    return !assignedValue || assignedValue === '0' || assignedValue === 'null' || assignedValue === 'undefined';
+  };
 
   const countriesForFilter = useMemo(() => {
-    const fromMaster = allCountries.map(c => c.name);
-    const fromLeads = leads.map(l => l.country).filter(Boolean) as string[];
-    return Array.from(new Set([...fromMaster, ...fromLeads])).sort();
-  }, [leads]);
+    return Array.from(
+      new Set(
+        allCountries
+          .map(c => (c.name || '').trim())
+          .filter(Boolean)
+      )
+    ).sort();
+  }, []);
+
+  const countryFilterOptions = useMemo(() => {
+    return [
+      { value: 'all', label: 'All Countries' },
+      ...countriesForFilter.map(country => ({ value: country, label: country }))
+    ];
+  }, [countriesForFilter]);
 
   const filteredLeads = useMemo(() => {
     let leadsToFilter = leads;
 
     if (view === 'table') {
       if (activeStatus === 'Unassigned') {
-        leadsToFilter = leadsToFilter.filter(lead => !lead.assignedToId || Number(lead.assignedToId) === 0);
+        leadsToFilter = leadsToFilter.filter(isUnassignedLead);
       } else if (activeStatus !== 'All') {
         leadsToFilter = leadsToFilter.filter(lead => lead.leadStatus === activeStatus);
       }
     }
     
-    return leadsToFilter.filter(lead => 
-      (agentFilter === 'all' || (agentFilter === 'unassigned' ? (!lead.assignedToId || Number(lead.assignedToId) === 0) : String(lead.assignedToId) === agentFilter)) &&
-      (sourceFilter === 'all' || lead.leadSource === sourceFilter) &&
-      (countryFilter === 'all' || lead.country === countryFilter) &&
-      (
-        lead.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        lead.phone.includes(searchTerm) ||
-        (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    );
-  }, [leads, activeStatus, searchTerm, view, agentFilter, sourceFilter, countryFilter]);
+    return leadsToFilter.filter(lead => {
+      const leadDate = lead.createdAt ? String(lead.createdAt).slice(0, 10) : '';
+      return (
+        (
+          agentFilter === 'all' ||
+          (agentFilter === 'assigned' ? !isUnassignedLead(lead) :
+            (agentFilter === 'unassigned' ? isUnassignedLead(lead) : String(lead.assignedToId) === agentFilter))
+        ) &&
+        (sourceFilter === 'all' || lead.leadSource === sourceFilter) &&
+        (countryFilter === 'all' || lead.country === countryFilter) &&
+        (!dateFilter || leadDate === dateFilter) &&
+        (
+          lead.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+          lead.phone.includes(searchTerm) ||
+          (lead.service && lead.service.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase()))
+        )
+      );
+    });
+  }, [leads, activeStatus, searchTerm, view, agentFilter, sourceFilter, countryFilter, dateFilter]);
   
   const { items: sortedLeads, requestSort, sortConfig } = useSorting<Lead>(filteredLeads, { key: 'createdAt', direction: 'descending'});
 
@@ -196,6 +225,13 @@ const LeadsPage: React.FC = () => {
 
   const handleExport = () => {
     fireToast('info', 'Starting export...');
+    const toExcelText = (value: string) => `="${String(value).replace(/"/g, '""')}"`;
+    const toCsvCell = (value: string) => {
+      if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    };
     
     const exportColumns = visibleColumns.filter(c => c.key !== 'actions');
     const headers = exportColumns.map(c => c.label).join(',');
@@ -207,15 +243,19 @@ const LeadsPage: React.FC = () => {
             else if (col.key === 'assignedToId') val = users.find(u => String(u.id) === String(lead.assignedToId))?.name || 'Unassigned';
             else val = (lead as any)[col.key] || '';
 
-            const stringVal = String(val);
-            if (stringVal.includes(',') || stringVal.includes('"') || stringVal.includes('\n')) {
-                return `"${stringVal.replace(/"/g, '""')}"`;
+            const stringVal = String(val ?? '');
+            if (col.key === 'createdAt') {
+                const dateOnly = stringVal ? stringVal.slice(0, 10) : '';
+                return dateOnly ? toCsvCell(toExcelText(dateOnly)) : '';
             }
-            return stringVal;
+            if (col.key === 'phone' || col.key === 'phone2' || col.key === 'phone3' || col.key === 'phone4') {
+                return stringVal ? toCsvCell(toExcelText(stringVal)) : '';
+            }
+            return toCsvCell(stringVal);
         }).join(',');
     });
 
-    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent([headers, ...rows].join("\n"));
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent('\uFEFF' + [headers, ...rows].join("\n"));
     const link = document.createElement("a");
     link.setAttribute("href", csvContent);
     link.setAttribute("download", `leads_export_${new Date().toISOString().split('T')[0]}.csv`);
@@ -306,7 +346,7 @@ const LeadsPage: React.FC = () => {
              {view === 'table' && (
                 <div className="border-b border-gray-200 mb-4">
                     <nav className="-mb-px flex flex-wrap gap-x-6 gap-y-2">
-                        {TABS.map(tab => (
+                        {statusTabs.map(tab => (
                           <button key={tab.key} onClick={() => setSearchParams({ status: tab.key })} className={tabClass(tab.key)}>
                             {tab.name}
                           </button>
@@ -320,13 +360,14 @@ const LeadsPage: React.FC = () => {
                     <SearchInput
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search by name, phone or email..."
+                        placeholder="Search by name, phone, service or email..."
                         className="w-full sm:w-64"
                     />
                     <div className="flex gap-2">
                         {isSuperAdmin && (
                             <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} className="filter-dropdown w-full sm:w-40">
-                                <option value="all">All Agents</option>
+                                <option value="all">All Leads</option>
+                                <option value="assigned">Assigned</option>
                                 <option value="unassigned">Unassigned</option>
                                 {users.map(user => (
                                     <option key={user.id} value={String(user.id)}>{capitalizeName(user.name)}</option>
@@ -339,12 +380,22 @@ const LeadsPage: React.FC = () => {
                                 <option key={source.id} value={source.name}>{source.name}</option>
                             ))}
                         </select>
-                        <select value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)} className="filter-dropdown w-full sm:w-40">
-                            <option value="all">All Countries</option>
-                            {countriesForFilter.map(country => (
-                                <option key={country} value={country}>{country}</option>
-                            ))}
-                        </select>
+                        <div className="w-full sm:w-40 h-[42px]">
+                            <SearchableDropdown
+                                options={countryFilterOptions}
+                                value={countryFilter}
+                                onChange={setCountryFilter}
+                                placeholder="All Countries"
+                                buttonClassName="filter-dropdown no-native-arrow w-full"
+                            />
+                        </div>
+                        <input
+                            type="date"
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            className="filter-dropdown w-full sm:w-44"
+                            title="Filter by lead date"
+                        />
                     </div>
                 </div>
 
@@ -545,6 +596,9 @@ const LeadsPage: React.FC = () => {
           outline: 1px solid transparent;
           border-color: #c4161c;
           box-shadow: 0 0 0 1px #c4161c;
+       }
+       .no-native-arrow {
+         background-image: none !important;
        }
        @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(10px); }

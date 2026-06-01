@@ -5,7 +5,7 @@ import { useCrm } from '../../hooks/useCrm';
 import { usePermissions } from '../../hooks/usePermissions';
 import { Link } from 'react-router-dom';
 import { useSwal } from '../../hooks/useSwal';
-import { capitalizeName } from '../../utils/formatters';
+import { capitalizeName, formatDateDDMMYYYY } from '../../utils/formatters';
 import Tooltip from '../common/Tooltip';
 
 interface LeadTableProps {
@@ -18,7 +18,7 @@ interface LeadTableProps {
 }
 
 const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedIds, setSelectedIds, requestSort, sortConfig }) => {
-  const { leadSources, leadStatuses, applicationStatuses, passportStatuses, users, updateLead, deleteLead, addNoteForLead } = useCrm();
+  const { leadSources, leadStatuses, users, updateLead, deleteLead, addNoteForLead } = useCrm();
   const permissions = usePermissions();
   const { fireToast, confirmDelete } = useSwal();
   const canUpdateLeads = permissions.can('leads', 'update');
@@ -89,14 +89,13 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
       return hoursInactive > 72;
   };
 
-  const getSelectClass = (type: 'source' | 'status' | 'app' | 'default') => {
+  const getSelectClass = (type: 'source' | 'status' | 'default') => {
       const base = "w-full p-1.5 border rounded-md text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors cursor-pointer appearance-none pl-2 pr-6";
       const bgImage = `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`;
       const bgStyle = { backgroundImage: bgImage, backgroundPosition: 'right 0.2rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.2em 1.2em' };
       
       switch(type) {
           case 'status': return { className: `${base} bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100`, style: bgStyle };
-          case 'app': return { className: `${base} bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100`, style: bgStyle };
           case 'source': return { className: `${base} bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100`, style: bgStyle };
           default: return { className: `${base} bg-white text-gray-700 border-gray-300 hover:bg-gray-50`, style: bgStyle };
       }
@@ -110,7 +109,7 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
             return (
                 <td className="p-3 whitespace-nowrap">
                     <div className="flex flex-col">
-                        <span className="text-gray-700 font-medium">{dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span className="text-gray-700 font-medium">{formatDateDDMMYYYY(lead.createdAt)}</span>
                         <span className="text-[10px] text-gray-400">{dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                 </td>
@@ -221,35 +220,9 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
             </td>
         );
 
-        case 'applicationStatus': 
-            const appStyle = getSelectClass('app');
-            return (
-                <td className="p-3 min-w-[150px]">
-                    <select
-                        value={lead.applicationStatus}
-                        disabled={!canUpdateLeads}
-                        onChange={(e) => handleInlineUpdate(lead, 'applicationStatus', e.target.value)}
-                        className={appStyle.className}
-                        style={appStyle.style}
-                    >
-                        {applicationStatuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                    </select>
-                </td>
-            );
-
-        case 'passportStatus': 
-             return (
-                <td className="p-3 min-w-[150px]">
-                    <select
-                        value={lead.passportStatus}
-                        disabled={!canUpdateLeads}
-                        onChange={(e) => handleInlineUpdate(lead, 'passportStatus', e.target.value)}
-                        className="w-full p-1.5 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100"
-                    >
-                        {passportStatuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                    </select>
-                </td>
-            );
+        // case 'applicationStatus':
+        // case 'passportStatus':
+        //   return null;
 
         case 'phone': 
             const hasMorePhones = !!(lead.phone2 || lead.phone3 || lead.phone4);

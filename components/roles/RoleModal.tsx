@@ -135,7 +135,7 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, onClose, onSave, role }) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[100] flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 z-[11000] flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl relative flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
          <button 
             onClick={onClose} 

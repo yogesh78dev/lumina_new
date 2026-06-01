@@ -57,7 +57,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, onSave, in
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-[11000] flex justify-center items-center" onClick={onClose}>
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative" onClick={e => e.stopPropagation()}>
         <button 
             onClick={onClose} 

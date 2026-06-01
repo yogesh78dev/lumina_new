@@ -179,11 +179,11 @@ const CRMConfiguration: React.FC = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'pipeline':
-                return <StatusManager title="Pipeline Status" items={leadStatuses} onAdd={addLeadStatus} onUpdate={updateLeadStatus} onDelete={deleteLeadStatus} />;
-            case 'application':
-                return <StatusManager title="Application Status" items={applicationStatuses} onAdd={addApplicationStatus} onUpdate={updateApplicationStatus} onDelete={deleteApplicationStatus} />;
-            case 'passport':
-                return <StatusManager title="Passport Status" items={passportStatuses} onAdd={addPassportStatus} onUpdate={updatePassportStatus} onDelete={deletePassportStatus} />;
+                return <StatusManager title="Lead Status" items={leadStatuses} onAdd={addLeadStatus} onUpdate={updateLeadStatus} onDelete={deleteLeadStatus} />;
+            // case 'application':
+            //     return <StatusManager title="Application Status" items={applicationStatuses} onAdd={addApplicationStatus} onUpdate={updateApplicationStatus} onDelete={deleteApplicationStatus} />;
+            // case 'passport':
+            //     return <StatusManager title="Passport Status" items={passportStatuses} onAdd={addPassportStatus} onUpdate={updatePassportStatus} onDelete={deletePassportStatus} />;
             case 'document':
                 return <StatusManager title="Document List" items={documentTypes} onAdd={addDocumentType} onUpdate={updateDocumentType} onDelete={deleteDocumentType} />;
             case 'remark':
@@ -202,9 +202,9 @@ const CRMConfiguration: React.FC = () => {
     return (
         <div className="container mx-auto">
             <div className="flex space-x-2 mb-6 p-2 bg-white rounded-lg shadow-sm w-full overflow-x-auto thin-scrollbar">
-                <button onClick={() => setActiveTab('pipeline')} className={tabClass('pipeline')}>Pipeline Status</button>
-                <button onClick={() => setActiveTab('application')} className={tabClass('application')}>Application Status</button>
-                <button onClick={() => setActiveTab('passport')} className={tabClass('passport')}>Passport Status</button>
+                <button onClick={() => setActiveTab('pipeline')} className={tabClass('pipeline')}>Lead Status</button>
+                {/* <button onClick={() => setActiveTab('application')} className={tabClass('application')}>Application Status</button>
+                <button onClick={() => setActiveTab('passport')} className={tabClass('passport')}>Passport Status</button> */}
                 <button onClick={() => setActiveTab('document')} className={tabClass('document')}>Document List</button>
                 <button onClick={() => setActiveTab('remark')} className={tabClass('remark')}>Remark Status</button>
                 <button onClick={() => setActiveTab('source')} className={tabClass('source')}>Lead Source</button>

@@ -5,6 +5,7 @@ export interface Country {
 }
 
 export const allCountries: Country[] = [
+    { name: 'Unknown', isoCode: 'UN', phoneCode: '' },
     { name: 'Afghanistan', isoCode: 'AF', phoneCode: '+93' },
     { name: 'Albania', isoCode: 'AL', phoneCode: '+355' },
     { name: 'Algeria', isoCode: 'DZ', phoneCode: '+213' },

@@ -2,6 +2,55 @@
 const db = require('../db');
 const { logAction } = require('../utils/logger');
 
+const normalize = (v) => String(v ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+const buildCountryNameSet = () => {
+    const set = new Set();
+    try {
+        const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+        for (let i = 65; i <= 90; i++) {
+            for (let j = 65; j <= 90; j++) {
+                const code = String.fromCharCode(i) + String.fromCharCode(j);
+                const name = regionNames.of(code);
+                if (name && !/^[A-Z]{2}$/.test(name)) {
+                    set.add(normalize(name));
+                }
+            }
+        }
+    } catch (e) {
+        // Fallback handled by aliases below
+    }
+    ['UAE', 'USA', 'UK', 'Russia', 'South Korea', 'North Korea', 'Vietnam', 'Venezuela', 'Bolivia', 'Tanzania', 'Unknown'].forEach(alias => {
+        set.add(normalize(alias));
+    });
+    return set;
+};
+
+const VALID_COUNTRY_SET = buildCountryNameSet();
+
+const parseImportLeadDate = (value) => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return null;
+
+    // Accept DD-MM-YYYY (client format)
+    const dmy = raw.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (dmy) {
+        const [, dd, mm, yyyy] = dmy;
+        const iso = `${yyyy}-${mm}-${dd}`;
+        const d = new Date(`${iso}T00:00:00`);
+        if (!Number.isNaN(d.getTime()) && d.getFullYear() === Number(yyyy) && d.getMonth() + 1 === Number(mm) && d.getDate() === Number(dd)) {
+            return iso;
+        }
+        return 'INVALID';
+    }
+
+    // Backward compatibility: YYYY-MM-DD
+    const ymd = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (ymd) return raw;
+
+    return 'INVALID';
+};
+
 exports.getImportHistory = async (req, res) => {
     try {
         const [rows] = await db.execute(`
@@ -33,43 +82,186 @@ exports.importLeads = async (req, res) => {
             return phoneStr.replace(/\s+/g, '');
         };
 
-        for (const lead of leads) {
-            // Basic validation
-            if (!lead.name || !lead.phone) continue;
+        const splitPhoneCandidates = (value) => {
+            if (!value) return [];
+            // Supports: "a,b", "a | b" (+ legacy separators)
+            return String(value)
+                .split(/[\/,;|]+/)
+                .map(v => v.trim())
+                .filter(Boolean);
+        };
 
-            const phone = cleanPhone(lead.phone);
-            const phone2 = cleanPhone(lead.phone2);
-            const phone3 = cleanPhone(lead.phone3);
-            const phone4 = cleanPhone(lead.phone4);
+        const [portalUsers] = await connection.execute('SELECT id, name FROM users WHERE status = "Active"');
+        const [portalSources] = await connection.execute('SELECT name FROM lead_sources');
+        const userByName = new Map(portalUsers.map(u => [normalize(u.name), u]));
+        const validSourceNames = new Set(portalSources.map(s => normalize(s.name)));
 
-            // Handle date
-            const createdAt = lead.createdAt || lead.created_at || lead.Date || lead.date || null;
+        // Validate defaults as fallback values
+        if (defaults?.leadSource && !validSourceNames.has(normalize(defaults.leadSource))) {
+            return res.status(400).json({ error: `Invalid default Lead Source: "${defaults.leadSource}". It must match portal Lead Source.` });
+        }
 
+        const rowsToInsert = [];
+        const validationErrors = [];
+
+        for (let idx = 0; idx < leads.length; idx++) {
+            const lead = leads[idx];
+            const rowNo = idx + 2; // CSV header is row 1
+            const rowErrors = [];
+
+            const rawName = String(lead.name || '').trim();
+            const rowLeadSource = String(
+                lead['lead source'] ?? lead.leadsource ?? lead.lead_source ?? lead['leadsource'] ?? ''
+            ).trim();
+            const rowAssignTo = String(
+                lead['assign to agent'] ?? lead.assigntoagent ?? lead.assign_to_agent ?? lead['assigned to agent'] ?? ''
+            ).trim();
+            const rowRemark = String(
+                lead['notes/remark'] ??
+                lead['notes'] ??
+                lead['remark'] ??
+                lead['remarks'] ??
+                ''
+            ).trim();
+
+            if (!rawName) {
+                rowErrors.push('Name is required');
+            }
+
+            // Merge and normalize phone values from all potential columns.
+            // If `phone` contains multiple numbers, map them across phone1..phone4.
+            const phoneParts = [
+                ...splitPhoneCandidates(lead.phone),
+                ...splitPhoneCandidates(lead.phone2),
+                ...splitPhoneCandidates(lead.phone3),
+                ...splitPhoneCandidates(lead.phone4)
+            ];
+
+            const normalizedPhones = [];
+            for (const part of phoneParts) {
+                const normalized = cleanPhone(part);
+                if (normalized && !normalizedPhones.includes(normalized)) {
+                    normalizedPhones.push(normalized);
+                }
+            }
+
+            const phone = normalizedPhones[0] || null;
+            const phone2 = normalizedPhones[1] || null;
+            const phone3 = normalizedPhones[2] || null;
+            const phone4 = normalizedPhones[3] || null;
+            if (!phone) {
+                rowErrors.push('Phone is required');
+            }
+
+            // Country validation (no random text)
+            const rawCountry = String(lead.country || '').trim();
+            const countryNormalized = normalize(rawCountry);
+            if (rawCountry && !VALID_COUNTRY_SET.has(countryNormalized)) {
+                rowErrors.push(`Invalid Country "${rawCountry}" (must be a valid country name)`);
+            }
+
+            // Assign To Agent validation by portal user name
+            let assignedToId = defaults?.assignedToId || null;
+            if (rowAssignTo) {
+                const matchedUser = userByName.get(normalize(rowAssignTo));
+                if (!matchedUser) {
+                    rowErrors.push(`Invalid Assign To Agent "${rowAssignTo}" (must match portal user name)`);
+                } else {
+                    assignedToId = matchedUser.id;
+                }
+            }
+
+            // Lead Source validation by portal lead source name
+            let finalLeadSource = defaults?.leadSource || 'Import';
+            if (rowLeadSource) {
+                if (!validSourceNames.has(normalize(rowLeadSource))) {
+                    rowErrors.push(`Invalid Lead Source "${rowLeadSource}" (must match portal Lead Source)`);
+                } else {
+                    finalLeadSource = rowLeadSource;
+                }
+            }
+
+            // Handle date from multiple possible header variants
+            const createdAtInput = (
+                lead.createdAt ||
+                lead.createdat ||
+                lead.created_at ||
+                lead.leadDate ||
+                lead.leaddate ||
+                lead.lead_date ||
+                lead['lead date'] ||
+                lead.Date ||
+                lead.date ||
+                null
+            );
+            const createdAt = parseImportLeadDate(createdAtInput);
+            if (createdAt === 'INVALID') {
+                rowErrors.push(`Invalid Date "${createdAtInput}" (use DD-MM-YYYY, e.g. 01-06-2026)`);
+            }
+
+            if (rowErrors.length > 0) {
+                validationErrors.push(`Row ${rowNo}: ${rowErrors.join('; ')}`);
+                continue;
+            }
+
+            rowsToInsert.push({
+                name: rawName,
+                phone,
+                phone2,
+                phone3,
+                phone4,
+                email: lead.email || null,
+                service: lead.service || defaults.service || null,
+                country: rawCountry || defaults.country || 'India',
+                leadSource: finalLeadSource,
+                leadStatus: defaults.leadStatus || 'New Lead',
+                assignedToId,
+                createdAt,
+                rowRemark
+            });
+        }
+
+        if (validationErrors.length > 0) {
+            const MAX_ERRORS_TO_RETURN = 100;
+            const visibleErrors = validationErrors.slice(0, MAX_ERRORS_TO_RETURN);
+            await connection.rollback();
+            return res.status(400).json({
+                error: `Import validation failed. ${validationErrors.length} row(s) contain errors.${validationErrors.length > MAX_ERRORS_TO_RETURN ? ` Showing first ${MAX_ERRORS_TO_RETURN} errors.` : ''}\n${visibleErrors.join('\n')}`
+            });
+        }
+
+        for (const row of rowsToInsert) {
             const [result] = await connection.execute(
                 `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, country, lead_source, lead_status, assigned_to_id, created_at, last_activity_at) 
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))`,
                 [
-                    lead.name, 
-                    phone, 
-                    phone2,
-                    phone3,
-                    phone4,
-                    lead.email || null, 
-                    lead.service || defaults.service || null,
-                    lead.country || defaults.country || 'India',
-                    defaults.leadSource || 'Import',
-                    defaults.leadStatus || 'New Lead',
-                    defaults.assignedToId || null,
-                    createdAt,
-                    createdAt
+                    row.name,
+                    row.phone,
+                    row.phone2,
+                    row.phone3,
+                    row.phone4,
+                    row.email,
+                    row.service,
+                    row.country,
+                    row.leadSource,
+                    row.leadStatus,
+                    row.assignedToId || null,
+                    row.createdAt,
+                    row.createdAt
                 ]
             );
 
-            // Add default note if provided
-            if (defaults.note && defaults.note.trim()) {
+            // Add row remark/default note
+            const defaultNote = String(defaults.note || '').trim();
+            const rowNote = String(row.rowRemark || '').trim();
+            const noteToInsert = rowNote && defaultNote
+                ? `${defaultNote}\n${rowNote}`
+                : (rowNote || defaultNote);
+
+            if (noteToInsert) {
                 await connection.execute(
                     'INSERT INTO lead_notes (lead_id, content, author_name) VALUES (?, ?, ?)',
-                    [result.insertId, defaults.note, req.user.name]
+                    [result.insertId, noteToInsert, req.user.name]
                 );
             }
             insertedCount++;

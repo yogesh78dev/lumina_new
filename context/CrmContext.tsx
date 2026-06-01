@@ -588,31 +588,82 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [fetchData]);
 
   const importLeads = useCallback(async (file: File, defaults: any) => { 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-        const text = e.target?.result as string;
-        const lines = text.split('\n');
-        const headers = lines[0].split(',');
-        const leadsArray = [];
-        
-        for(let i = 1; i < lines.length; i++) {
-            if(!lines[i].trim()) continue;
-            const values = lines[i].split(',');
-            const lead: any = {};
-            headers.forEach((header, index) => {
-                lead[header.trim().toLowerCase()] = values[index]?.trim();
-            });
-            leadsArray.push(lead);
+    const parseCsvLine = (line: string) => {
+        const cells: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '"') {
+                if (inQuotes && line[i + 1] === '"') {
+                    current += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (ch === ',' && !inQuotes) {
+                cells.push(current);
+                current = '';
+            } else {
+                current += ch;
+            }
         }
-        
-        try {
-            await api.data.importLeads({ leads: leadsArray, defaults, fileName: file.name });
-            await fetchData();
-        } catch (err: any) {
-            alert(err.message);
-        }
+        cells.push(current);
+        return cells.map(c => c.trim());
     };
-    reader.readAsText(file);
+
+    const mapRowsToLeads = (rows: string[][]) => {
+      if (!rows.length) return [];
+      const headers = rows[0] || [];
+      const leadsArray: any[] = [];
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row.some(cell => String(cell || '').trim())) continue;
+        const lead: any = {};
+        headers.forEach((header, index) => {
+          const normalizedHeader = String(header || '').replace(/^\uFEFF/, '').trim().toLowerCase();
+          lead[normalizedHeader] = String(row[index] ?? '').trim();
+        });
+        leadsArray.push(lead);
+      }
+      return leadsArray;
+    };
+
+    try {
+      const lowerName = file.name.toLowerCase();
+      let leadsArray: any[] = [];
+
+      if (lowerName.endsWith('.csv')) {
+        const text = await file.text();
+        const lines = text.split(/\r?\n/);
+        const csvRows = lines.map(line => parseCsvLine(line));
+        leadsArray = mapRowsToLeads(csvRows);
+      } else if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
+        const { read, utils } = await import('xlsx');
+        const data = await file.arrayBuffer();
+        const workbook = read(data, { type: 'array', raw: false });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) {
+          throw new Error('Excel file has no sheet. Please upload a valid file.');
+        }
+        const firstSheet = workbook.Sheets[firstSheetName];
+        const rows = (utils.sheet_to_json(firstSheet, { header: 1, raw: false, defval: '' }) as any[][])
+          .map(row => row.map(cell => String(cell ?? '').trim()));
+        leadsArray = mapRowsToLeads(rows as string[][]);
+      } else {
+        throw new Error('Unsupported file format. Please upload CSV, XLSX, or XLS.');
+      }
+
+      if (!leadsArray.length) {
+        throw new Error('No data rows found in file. Please check template and try again.');
+      }
+
+      await api.data.importLeads({ leads: leadsArray, defaults, fileName: file.name });
+      await fetchData();
+    } catch (err: any) {
+      const message = err?.message || 'Failed to read import file.';
+      throw new Error(message);
+    }
   }, [fetchData]);
   
   const deleteImportedLeadFile = useCallback(async (id: any) => { 

@@ -9,6 +9,7 @@ import LeadActivityTab from '../components/leads/LeadActivityTab';
 import LeadCommunicationTab from '../components/leads/LeadCommunicationTab';
 import LeadProfileSidebar from '../components/leads/LeadProfileSidebar';
 import CallOverlay from '../components/common/CallOverlay';
+import ProformaInvoiceModal from '../components/leads/ProformaInvoiceModal';
 import PageContainer from '../components/layout/PageContainer';
 import { useSwal } from '../hooks/useSwal';
 import { generateAvatar } from '../utils/avatar';
@@ -95,6 +96,7 @@ const LeadDetailsPage: React.FC = () => {
     const permissions = usePermissions();
 
     const [activeTab, setActiveTab] = useState('activity');
+    const [isProformaOpen, setIsProformaOpen] = useState(false);
 
     // CRITICAL FIX: Use String() casting to avoid number vs string comparison failure
     const lead = useMemo(() => leads.find(l => String(l.id) === String(leadId)), [leads, leadId]);
@@ -278,6 +280,12 @@ const LeadDetailsPage: React.FC = () => {
 
                             {/* Buttons Group */}
                             <div className="flex gap-2">
+                                <button
+                                    onClick={() => setIsProformaOpen(true)}
+                                    className="px-3 py-2 bg-white border border-indigo-200 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-50 transition-all text-xs flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap"
+                                >
+                                    <i className="ri-file-paper-2-line text-sm"></i> Proforma Invoice
+                                </button>
                                 <button 
                                     onClick={() => openLeadModal(lead)}
                                     className="px-3 py-2 bg-white border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 hover:text-primary hover:border-primary transition-all text-xs flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap"
@@ -351,6 +359,11 @@ const LeadDetailsPage: React.FC = () => {
             </div>
             
             <CallOverlay />
+            <ProformaInvoiceModal
+                isOpen={isProformaOpen}
+                onClose={() => setIsProformaOpen(false)}
+                lead={lead}
+            />
 
             <style>{`
                 @keyframes fadeInUp {

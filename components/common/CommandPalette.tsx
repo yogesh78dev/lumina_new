@@ -25,6 +25,25 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
   const listRef = useRef<HTMLUListElement>(null);
   const navigate = useNavigate();
   const { leads, customers, openLeadModal, openInvoiceModal } = useCrm();
+  
+  const getDateSearchTokens = (createdAt?: string) => {
+    if (!createdAt) return [];
+    const raw = String(createdAt);
+    const datePart = raw.slice(0, 10);
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return [datePart.toLowerCase()];
+
+    const yyyy = parsed.getFullYear();
+    const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+    const dd = String(parsed.getDate()).padStart(2, '0');
+    return [
+      `${yyyy}-${mm}-${dd}`.toLowerCase(),
+      `${dd}-${mm}-${yyyy}`.toLowerCase(),
+      `${dd}/${mm}/${yyyy}`.toLowerCase(),
+      parsed.toLocaleDateString('en-GB').toLowerCase(),
+      parsed.toLocaleDateString('en-US').toLowerCase()
+    ];
+  };
 
   // Focus input when opened
   useEffect(() => {
@@ -86,16 +105,25 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
             action: () => openInvoiceModal(null)
         });
     }
-
     // 3. Leads
     leads.forEach(lead => {
-      if (lead.name.toLowerCase().includes(lowerQuery) || lead.phone.includes(lowerQuery)) {
+      const dateTokens = getDateSearchTokens(lead.createdAt);
+      const leadSearchValues = [
+        lead.name || '',
+        lead.phone || '',
+        lead.phone2 || '',
+        lead.phone3 || '',
+        lead.phone4 || '',
+        lead.service || '',
+        ...dateTokens
+      ].map(v => String(v).toLowerCase());
+
+      if (leadSearchValues.some(v => v.includes(lowerQuery))) {
         results.push({
-          // FIX: Cast lead.id to string
-          id: String(lead.id),
+          id: `lead-${String(lead.id)}`,
           type: 'lead',
           title: lead.name,
-          subtitle: `${lead.phone} • ${lead.leadStatus}`,
+          subtitle: `${lead.phone} | ${lead.service || 'No Service'} | ${dateTokens[0] || ''}`,
           icon: 'ri-user-star-line',
           tag: 'Lead',
           action: () => navigate(`/leads/${lead.id}`),
@@ -108,7 +136,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
       if (cust.name.toLowerCase().includes(lowerQuery)) {
         results.push({
           // FIX: Cast cust.id to string
-          id: String(cust.id),
+          id: `customer-${String(cust.id)}`,
           type: 'customer',
           title: cust.name,
           subtitle: `${cust.serviceType}`,
@@ -126,13 +154,16 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
+      const total = filteredResults.length;
 
       if (e.key === 'ArrowDown') {
+        if (total === 0) return;
         e.preventDefault();
-        setSelectedIndex(prev => (prev + 1) % filteredResults.length);
+        setSelectedIndex(prev => (prev + 1) % total);
       } else if (e.key === 'ArrowUp') {
+        if (total === 0) return;
         e.preventDefault();
-        setSelectedIndex(prev => (prev - 1 + filteredResults.length) % filteredResults.length);
+        setSelectedIndex(prev => (prev - 1 + total) % total);
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (filteredResults[selectedIndex]) {
@@ -148,10 +179,20 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, filteredResults, selectedIndex, onClose]);
 
+  useEffect(() => {
+    if (filteredResults.length === 0) {
+      setSelectedIndex(0);
+      return;
+    }
+    if (selectedIndex >= filteredResults.length) {
+      setSelectedIndex(0);
+    }
+  }, [filteredResults.length, selectedIndex]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[15vh] px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[11000] flex items-start justify-center pt-[15vh] px-4" onClick={onClose}>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"></div>
 
@@ -251,3 +292,4 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
 };
 
 export default CommandPalette;
+

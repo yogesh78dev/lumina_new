@@ -29,15 +29,39 @@ const initialFormData: LeadFormData = {
   leadStatus: '',
   companyName: '',
   location: '',
-  applicationStatus: '',
-  passportStatus: 'With Client',
+  remarks: '',
+  // applicationStatus: '',
+  // passportStatus: 'With Client',
   documents: [],
   assignedToId: '',
   createdAt: '',
 };
 
+const toInputDateValue = (value?: string) => {
+  if (!value) return '';
+
+  // If already in YYYY-MM-DD, keep it as-is to avoid timezone shifting.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  // Handle common DB datetime formats like "YYYY-MM-DD HH:mm:ss"
+  if (/^\d{4}-\d{2}-\d{2}\s/.test(value)) {
+    return value.slice(0, 10);
+  }
+
+  // Fallback for ISO values with timezone.
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAndNew, lead }) => {
-  const { leadSources, leadStatuses, applicationStatuses, passportStatuses, users, currentUser } = useCrm();
+  const { leadSources, leadStatuses, users, currentUser } = useCrm();
   const [formData, setFormData] = useState<LeadFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdditionalPhones, setShowAdditionalPhones] = useState(false);
@@ -51,7 +75,8 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
                 phone2: lead.phone2 || '',
                 phone3: lead.phone3 || '',
                 phone4: lead.phone4 || '',
-                createdAt: lead.createdAt ? new Date(lead.createdAt).toISOString().split('T')[0] : ''
+                remarks: lead.latestNote || '',
+                createdAt: toInputDateValue(lead.createdAt)
             });
             if (lead.phone2 || lead.phone3 || lead.phone4) {
                 setShowAdditionalPhones(true);
@@ -63,15 +88,16 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
                 country: 'India',
                 leadSource: leadSources[0]?.name || '',
                 leadStatus: leadStatuses[0]?.name || '',
-                applicationStatus: applicationStatuses[0]?.name || '',
-                passportStatus: passportStatuses[0]?.name || 'With Client',
+                remarks: '',
+                // applicationStatus: applicationStatuses[0]?.name || '',
+                // passportStatus: passportStatuses[0]?.name || 'With Client',
                 assignedToId: isSuperAdmin ? '' : (currentUser?.id || ''),
                 createdAt: new Date().toISOString().split('T')[0]
             });
         }
         setIsSubmitting(false);
     }
-  }, [lead, isOpen, leadSources, leadStatuses, applicationStatuses, passportStatuses, currentUser]);
+  }, [lead, isOpen, leadSources, leadStatuses, currentUser]);
 
   if (!isOpen) return null;
 
@@ -86,8 +112,9 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
         country: 'India',
         leadSource: leadSources[0]?.name || '',
         leadStatus: leadStatuses[0]?.name || '',
-        applicationStatus: applicationStatuses[0]?.name || '',
-        passportStatus: passportStatuses[0]?.name || 'With Client',
+        remarks: '',
+        // applicationStatus: applicationStatuses[0]?.name || '',
+        // passportStatus: passportStatuses[0]?.name || 'With Client',
         createdAt: new Date().toISOString().split('T')[0]
       });
   }
@@ -115,7 +142,7 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-[11000] flex justify-center items-center p-4" onClick={onClose}>
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl relative max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <button 
             onClick={onClose} 
@@ -188,6 +215,17 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
               <label className="block text-sm font-medium text-gray-700">Company Name</label>
               <input type="text" name="companyName" value={formData.companyName} onChange={handleChange} className="mt-1 input-field" />
             </div>
+            <div className="md:col-span-2 lg:col-span-3">
+              <label className="block text-sm font-medium text-gray-700">Remarks</label>
+              <textarea
+                name="remarks"
+                value={formData.remarks || ''}
+                onChange={handleChange}
+                rows={3}
+                className="mt-1 input-field resize-y"
+                placeholder="Add lead remarks..."
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Lead Source</label>
               <select name="leadSource" value={formData.leadSource} onChange={handleChange} className="mt-1 input-field">
@@ -195,23 +233,12 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Pipeline Status <span className="text-primary">*</span></label>
+              <label className="block text-sm font-medium text-gray-700">Lead Status <span className="text-primary">*</span></label>
               <select name="leadStatus" value={formData.leadStatus} onChange={handleChange} className="mt-1 input-field" required>
                 {leadStatuses.map(status => <option key={status.id} value={status.name}>{status.name}</option>)}
               </select>
             </div>
-            <div className="md:col-span-1 lg:col-span-1">
-                <label className="block text-sm font-medium text-gray-700">Application Status</label>
-                <select name="applicationStatus" value={formData.applicationStatus} onChange={handleChange} className="mt-1 input-field">
-                    {applicationStatuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                </select>
-            </div>
-            <div className="md:col-span-1 lg:col-span-1">
-                <label className="block text-sm font-medium text-gray-700">Passport Status</label>
-                <select name="passportStatus" value={formData.passportStatus} onChange={handleChange} className="mt-1 input-field">
-                    {passportStatuses.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                </select>
-            </div>
+            {/* Application Status and Passport Status are intentionally hidden for now. */}
             <div className="md:col-span-1 lg:col-span-1">
                 <label className="block text-sm font-medium text-gray-700">Assign To Agent</label>
                 <select 
