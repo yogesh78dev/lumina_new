@@ -318,6 +318,7 @@ export const mockCompanyDetails: CompanyDetails = {
     timezone: '(GMT+05:30) India Standard Time (Asia/Kolkata)',
     dateFormat: 'dd-mm-yyyy',
     currency: 'INR',
+    sidebarOrder: ['dashboard', 'leads', 'customers', 'vendors', 'reminders', 'invoices', 'settings'],
 };
 
 export const mockAnnouncements: Announcement[] = [

@@ -431,6 +431,7 @@ CREATE TABLE company_details (
     currency VARCHAR(10),
     logo_url MEDIUMTEXT,
     favicon_url MEDIUMTEXT,
+    sidebar_order TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -541,4 +542,3 @@ INSERT INTO payment_gateway_settings (id, gateway_name, api_key, api_secret)
 VALUES (1, 'Razorpay', 'rzp_test_default', 'default_secret');
 
 ALTER TABLE `leads` ADD `phone2` VARCHAR(30) NULL DEFAULT NULL AFTER `phone`, ADD `phone3` VARCHAR(30) NULL DEFAULT NULL AFTER `phone2`, ADD `phone4` VARCHAR(30) NULL DEFAULT NULL AFTER `phone3`;
-

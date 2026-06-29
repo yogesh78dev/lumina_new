@@ -63,6 +63,7 @@ export const allCountries: Country[] = [
     { name: 'Greece', isoCode: 'GR', phoneCode: '+30' },
     { name: 'Guatemala', isoCode: 'GT', phoneCode: '+502' },
     { name: 'Honduras', isoCode: 'HN', phoneCode: '+504' },
+    { name: 'Hong Kong', isoCode: 'HK', phoneCode: '+852' },
     { name: 'Hungary', isoCode: 'HU', phoneCode: '+36' },
     { name: 'Iceland', isoCode: 'IS', phoneCode: '+354' },
     { name: 'India', isoCode: 'IN', phoneCode: '+91' },
@@ -163,6 +164,7 @@ export const popularCountries: Country[] = [
     { name: 'United Arab Emirates', isoCode: 'AE', phoneCode: '+971' },
     { name: 'Singapore', isoCode: 'SG', phoneCode: '+65' },
     { name: 'China', isoCode: 'CN', phoneCode: '+86' },
+    { name: 'Hong Kong', isoCode: 'HK', phoneCode: '+852' },
     { name: 'Japan', isoCode: 'JP', phoneCode: '+81' },
     { name: 'South Africa', isoCode: 'ZA', phoneCode: '+27' },
 ];

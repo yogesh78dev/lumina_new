@@ -23,6 +23,7 @@ const settingsConfig = [
         name: 'General',
         items: [
             { id: 'company-details', name: 'Company Profile', icon: 'ri-building-4-line' },
+            { id: 'sidebar-menu', name: 'Sidebar Menu', icon: 'ri-menu-fold-line' },
         ]
     },
     {
@@ -52,6 +53,24 @@ const settingsConfig = [
         ]
     }
 ];
+
+const DEFAULT_SIDEBAR_ORDER = ['dashboard', 'leads', 'customers', 'vendors', 'reminders', 'invoices', 'settings'];
+
+const sidebarMenuItems: Record<string, { label: string; icon: string }> = {
+    dashboard: { label: 'Dashboard', icon: 'ri-pie-chart-2-line' },
+    leads: { label: 'Leads', icon: 'ri-group-2-line' },
+    customers: { label: 'Customers', icon: 'ri-team-line' },
+    vendors: { label: 'Vendors', icon: 'ri-store-2-line' },
+    reminders: { label: 'Reminders', icon: 'ri-notification-3-line' },
+    invoices: { label: 'Invoices', icon: 'ri-bill-line' },
+    settings: { label: 'Settings', icon: 'ri-settings-3-line' }
+};
+
+const normalizeSidebarOrder = (order?: string[]) => {
+    const savedOrder = Array.isArray(order) ? order : [];
+    return [...savedOrder, ...DEFAULT_SIDEBAR_ORDER.filter(id => !savedOrder.includes(id))]
+        .filter((id, index, arr) => sidebarMenuItems[id] && arr.indexOf(id) === index);
+};
 
 const CompanyDetailsForm = () => {
     const { companyDetails, updateCompanyDetails } = useCrm();
@@ -300,6 +319,128 @@ const CompanyDetailsForm = () => {
                 </button>
             </div>
         </form>
+    );
+};
+
+const SidebarMenuSettings = () => {
+    const { companyDetails, updateCompanyDetails, currentUser } = useCrm();
+    const { fireToast } = useSwal();
+    const [order, setOrder] = useState<string[]>(normalizeSidebarOrder(companyDetails.sidebarOrder));
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSuperAdmin = currentUser?.role === 'Super Admin';
+
+    useEffect(() => {
+        setOrder(normalizeSidebarOrder(companyDetails.sidebarOrder));
+    }, [companyDetails.sidebarOrder]);
+
+    const moveItem = (index: number, direction: -1 | 1) => {
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= order.length) return;
+        const nextOrder = [...order];
+        [nextOrder[index], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[index]];
+        setOrder(nextOrder);
+    };
+
+    const handleReset = () => {
+        setOrder(DEFAULT_SIDEBAR_ORDER);
+    };
+
+    const handleSave = async () => {
+        if (!isSuperAdmin || isSubmitting) return;
+        setIsSubmitting(true);
+        try {
+            await updateCompanyDetails({ ...companyDetails, sidebarOrder: order });
+            fireToast('success', 'Sidebar order updated successfully!');
+        } catch (error: any) {
+            fireToast('error', error.message || 'Failed to update sidebar order.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (!isSuperAdmin) {
+        return (
+            <div className="bg-white p-6 rounded-lg shadow-md">
+                <h3 className="text-xl font-semibold text-gray-800">Sidebar Menu</h3>
+                <p className="text-sm text-gray-500 mt-2">Only Super Admin can manage sidebar order.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                <div>
+                    <h3 className="text-xl font-semibold text-gray-800">Sidebar Menu</h3>
+                    <p className="text-sm text-gray-500 mt-1">Arrange how modules appear in the main sidebar for all users.</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={handleReset}
+                    disabled={isSubmitting}
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                >
+                    Reset Default
+                </button>
+            </div>
+
+            <div className="border rounded-lg overflow-hidden divide-y">
+                {order.map((id, index) => {
+                    const item = sidebarMenuItems[id];
+                    if (!item) return null;
+                    return (
+                        <div key={id} className="flex items-center justify-between gap-4 p-4 bg-white">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <span className="w-8 h-8 rounded-md bg-gray-100 text-gray-600 flex items-center justify-center text-sm font-semibold">
+                                    {index + 1}
+                                </span>
+                                <i className={`${item.icon} text-xl text-primary`}></i>
+                                <span className="font-medium text-gray-800 truncate">{item.label}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => moveItem(index, -1)}
+                                    disabled={index === 0 || isSubmitting}
+                                    className="w-9 h-9 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Move up"
+                                >
+                                    <i className="ri-arrow-up-line"></i>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => moveItem(index, 1)}
+                                    disabled={index === order.length - 1 || isSubmitting}
+                                    className="w-9 h-9 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Move down"
+                                >
+                                    <i className="ri-arrow-down-line"></i>
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
+                <button
+                    type="button"
+                    onClick={() => setOrder(normalizeSidebarOrder(companyDetails.sidebarOrder))}
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-70 flex items-center gap-2"
+                >
+                    {isSubmitting ? <><i className="ri-loader-4-line animate-spin"></i> Saving...</> : 'Save Order'}
+                </button>
+            </div>
+        </div>
     );
 };
 
@@ -609,6 +750,8 @@ const SettingsContent: React.FC<{ activeView: string }> = ({ activeView }) => {
                         {activeTab === 'mobile-api' && <MobileApiForm />}
                     </>
                 );
+            case 'sidebar-menu':
+                return <SidebarMenuSettings />;
             case 'crm-config':
                 return <CRMConfiguration />;
             case 'users':
@@ -636,7 +779,7 @@ const SettingsContent: React.FC<{ activeView: string }> = ({ activeView }) => {
         }
     };
 
-    const isFullWidthPage = ['users', 'roles', 'system-log', 'crm-config', 'data-import', 'data-export', 'data-target', 'workflow', 'announcements', 'security', 'payment-gateway'].includes(activeView);
+    const isFullWidthPage = ['sidebar-menu', 'users', 'roles', 'system-log', 'crm-config', 'data-import', 'data-export', 'data-target', 'workflow', 'announcements', 'security', 'payment-gateway'].includes(activeView);
     
     if (isFullWidthPage) {
         return renderContent();

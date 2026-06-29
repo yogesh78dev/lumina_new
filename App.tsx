@@ -21,6 +21,7 @@ import UserLoginActivityPage from './pages/UserLoginActivityPage';
 import SecurityControlsPage from './components/settings/SecurityControlsPage';
 import DataAdministrationPage from './pages/DataAdministrationPage';
 import ChatPage from './pages/ChatPage';
+import ProformaInvoicePage from './pages/ProformaInvoicePage';
 
 const App: React.FC = () => {
   return (
@@ -39,6 +40,7 @@ const App: React.FC = () => {
           >
             <Route index element={<DashboardPage />} />
             <Route path="leads" element={<LeadsPage />} />
+            <Route path="leads/:leadId/proforma-invoice" element={<ProformaInvoicePage />} />
             <Route path="leads/:leadId" element={<LeadDetailsPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/new" element={<CustomerFormPage />} />

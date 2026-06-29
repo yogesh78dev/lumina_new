@@ -192,7 +192,7 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
               <h4 className="text-base font-bold text-gray-700">
                   {file ? file.name : 'Click or drag CSV/XLSX/XLS file here'}
               </h4>
-              <p className="text-xs text-gray-500 mt-2">Required: Name, Phone. Multiple phones allowed in Phone using `|` or `,`. Date format: DD-MM-YYYY (e.g. 01-06-2026). Country must be a valid country name (Unknown allowed). Assign To Agent and Lead Source must match portal values. Notes/Remark is optional.</p>
+              <p className="text-xs text-gray-500 mt-2">Required: Name, Phone. Multiple phones allowed in Phone using `|` or `,`. Date format: DD-MM-YYYY (e.g. 01-06-2026). Country must be a valid country name (Hong Kong and Unknown allowed). Assign To Agent and Lead Source must match portal values. Notes/Remark is optional.</p>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv,.xlsx,.xls" className="hidden"/>
               
               {file && (

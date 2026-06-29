@@ -216,6 +216,7 @@ export interface CompanyDetails {
   currency: string;
   logoUrl?: string;
   faviconUrl?: string;
+  sidebarOrder?: string[];
   socialMedia?: SocialMediaCredentials;
 }
 

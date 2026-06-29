@@ -9,7 +9,7 @@ import VendorModal from '../vendors/VendorModal';
 import { useCrm } from '../../hooks/useCrm';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useSwal } from '../../hooks/useSwal';
-import { Lead, Invoice, User, Role, Vendor } from '../../types';
+import { Lead, Invoice, User, Role, Vendor, ModuleName } from '../../types';
 import { capitalizeName } from '../../utils/formatters';
 import NotificationPanel from './NotificationPanel';
 import QuoteBuilderModal from '../quotes/QuoteBuilderModal';
@@ -92,6 +92,18 @@ const NavItem: React.FC<{
   );
 };
 
+const DEFAULT_SIDEBAR_ORDER = ['dashboard', 'leads', 'customers', 'vendors', 'reminders', 'invoices', 'settings'];
+
+const SIDEBAR_NAV_ITEMS: Record<string, { to: string; icon: string; label: string; permission?: ModuleName }> = {
+    dashboard: { to: '/', icon: 'ri-pie-chart-2-line', label: 'Dashboard' },
+    leads: { to: '/leads', icon: 'ri-group-2-line', label: 'Leads', permission: 'leads' },
+    customers: { to: '/customers', icon: 'ri-team-line', label: 'Customers', permission: 'customers' },
+    vendors: { to: '/vendors', icon: 'ri-store-2-line', label: 'Vendors', permission: 'vendors' },
+    reminders: { to: '/reminders', icon: 'ri-notification-3-line', label: 'Reminders', permission: 'reminders' },
+    invoices: { to: '/invoices', icon: 'ri-bill-line', label: 'Invoices', permission: 'invoices' },
+    settings: { to: '/settings', icon: 'ri-settings-3-line', label: 'Settings', permission: 'settings' }
+};
+
 const SidebarContent: React.FC<{ 
     isCollapsed: boolean;
     unreadChatCount: number;
@@ -110,6 +122,12 @@ const SidebarContent: React.FC<{
 
     const logoUrl = companyDetails?.logoUrl || "https://www.luminainfotech.com/assets/img/logo.svg";
     const isSuperAdmin = currentUser?.role === 'Super Admin';
+    const savedOrder = Array.isArray(companyDetails?.sidebarOrder) ? companyDetails.sidebarOrder : [];
+    const sidebarOrder = [...savedOrder, ...DEFAULT_SIDEBAR_ORDER.filter(id => !savedOrder.includes(id))]
+        .filter((id, index, arr) => SIDEBAR_NAV_ITEMS[id] && arr.indexOf(id) === index);
+    const visibleNavItems = sidebarOrder
+        .map(id => ({ id, ...SIDEBAR_NAV_ITEMS[id] }))
+        .filter(item => !item.permission || permissions.can(item.permission, 'read'));
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
@@ -123,21 +141,18 @@ const SidebarContent: React.FC<{
             
             <div className="flex-1 overflow-y-auto overflow-x-hidden thin-scrollbar">
                 <nav className="px-2 py-4 space-y-1">
-                    <NavItem to="/" icon="ri-pie-chart-2-line" label="Dashboard" isCollapsed={isCollapsed} />
-                    {permissions.can('leads', 'read') && (
+                    {visibleNavItems.map(item => item.id === 'leads' ? (
                         <NavItem 
+                            key={item.id}
                             to="/leads" 
                             icon="ri-group-2-line" 
                             label="Leads" 
                             isCollapsed={isCollapsed} 
                             badge={isSuperAdmin ? unassignedLeadsCount : undefined} 
                         />
-                    )}
-                    {permissions.can('customers', 'read') && <NavItem to="/customers" icon="ri-team-line" label="Customers" isCollapsed={isCollapsed} />}
-                    {permissions.can('vendors', 'read') && <NavItem to="/vendors" icon="ri-store-2-line" label="Vendors" isCollapsed={isCollapsed} />}
-                    {permissions.can('reminders', 'read') && <NavItem to="/reminders" icon="ri-notification-3-line" label="Reminders" isCollapsed={isCollapsed} />}
-                    {permissions.can('invoices', 'read') && <NavItem to="/invoices" icon="ri-bill-line" label="Invoices" isCollapsed={isCollapsed} />}
-                    {permissions.can('settings', 'read') && <NavItem to="/settings" icon="ri-settings-3-line" label="Settings" isCollapsed={isCollapsed} />}
+                    ) : (
+                        <NavItem key={item.id} to={item.to} icon={item.icon} label={item.label} isCollapsed={isCollapsed} />
+                    ))}
                 </nav>
             </div>
             

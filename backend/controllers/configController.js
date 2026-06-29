@@ -1,12 +1,35 @@
 
 const db = require('../db');
 
+let sidebarOrderColumnReady = false;
+
+const ensureSidebarOrderColumn = async () => {
+    if (sidebarOrderColumnReady) return;
+    const [columns] = await db.execute('SHOW COLUMNS FROM company_details LIKE "sidebar_order"');
+    if (columns.length === 0) {
+        await db.execute('ALTER TABLE company_details ADD COLUMN sidebar_order TEXT NULL');
+    }
+    sidebarOrderColumnReady = true;
+};
+
+const parseSidebarOrder = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+};
+
 /**
  * Application Handshake: Fetches all core configurations, master data, 
  * users, and roles to initialize the frontend global context state.
  */
 exports.getHandshake = async (req, res) => {
     try {
+        await ensureSidebarOrderColumn();
         const queries = [
             'SELECT * FROM lead_sources',
             'SELECT * FROM lead_statuses',
@@ -21,7 +44,7 @@ exports.getHandshake = async (req, res) => {
             'SELECT id, name, username, email, role_id as roleId, role_name as role, status, image_url as imageUrl FROM users',
             'SELECT * FROM roles',
             'SELECT * FROM vendors',
-            'SELECT id, company_name as companyName, address, city, state, country, pincode, from_name as fromName, from_email as fromEmail, reply_name as replyName, reply_email as replyEmail, help_email as helpEmail, info_email as infoEmail, phone, secondary_phone as secondaryPhone, instagram_link as instagramLink, facebook_link as facebookLink, twitter_link as twitterLink, linkedin_link as linkedinLink, website, gst_no as gstNo, timezone, date_format as dateFormat, currency, logo_url as logoUrl, favicon_url as faviconUrl FROM company_details WHERE id = 1',
+            'SELECT id, company_name as companyName, address, city, state, country, pincode, from_name as fromName, from_email as fromEmail, reply_name as replyName, reply_email as replyEmail, help_email as helpEmail, info_email as infoEmail, phone, secondary_phone as secondaryPhone, instagram_link as instagramLink, facebook_link as facebookLink, twitter_link as twitterLink, linkedin_link as linkedinLink, website, gst_no as gstNo, timezone, date_format as dateFormat, currency, logo_url as logoUrl, favicon_url as faviconUrl, sidebar_order as sidebarOrder FROM company_details WHERE id = 1',
             'SELECT id, api_name as apiName, api_url as apiUrl, api_key as apiKey FROM email_api_credentials WHERE id = 1',
             'SELECT id, api_name as apiName, from_number as fromNumber, sid, token FROM mobile_api_credentials WHERE id = 1',
             'SELECT id, gateway_name as gatewayName, api_key as apiKey, api_secret as apiSecret FROM payment_gateway_settings WHERE id = 1',
@@ -58,6 +81,9 @@ exports.getHandshake = async (req, res) => {
             recipients: typeof ann.recipients === 'string' ? JSON.parse(ann.recipients) : ann.recipients
         }));
 
+        const companyDetails = results[13][0][0] || {};
+        companyDetails.sidebarOrder = parseSidebarOrder(companyDetails.sidebarOrder);
+
         res.json({
             leadSources: results[0][0],
             leadStatuses: results[1][0],
@@ -72,7 +98,7 @@ exports.getHandshake = async (req, res) => {
             users: results[10][0],
             roles: roles,
             vendors: results[12][0],
-            companyDetails: results[13][0][0] || {},
+            companyDetails,
             emailApiCredentials: results[14][0][0] || {},
             mobileApiCredentials: results[15][0][0] || {},
             paymentGatewaySettings: results[16][0][0] || {},
@@ -105,20 +131,25 @@ exports.getPublicConfig = async (req, res) => {
  */
 exports.updateCompany = async (req, res) => {
     const c = req.body;
+    const sidebarOrderJson = Array.isArray(c.sidebarOrder) ? JSON.stringify(c.sidebarOrder) : null;
     const sql = `UPDATE company_details SET 
         company_name=?, address=?, city=?, state=?, country=?, pincode=?, 
         from_name=?, from_email=?, reply_name=?, reply_email=?, help_email=?, info_email=?, 
         phone=?, secondary_phone=?, instagram_link=?, facebook_link=?, twitter_link=?, linkedin_link=?, 
         website=?, gst_no=?, timezone=?, date_format=?, currency=?,
-        logo_url=?, favicon_url=?
+        logo_url=?, favicon_url=?, sidebar_order=COALESCE(?, sidebar_order)
         WHERE id=1`;
     try {
+        await ensureSidebarOrderColumn();
+        if (Object.prototype.hasOwnProperty.call(c, 'sidebarOrder') && req.user?.role !== 'Super Admin') {
+            return res.status(403).json({ error: 'Only Super Admin can manage sidebar order.' });
+        }
         await db.execute(sql, [
             c.companyName, c.address, c.city, c.state, c.country, c.pincode, 
             c.fromName, c.fromEmail, c.replyName, c.replyEmail, c.helpEmail, c.infoEmail, 
             c.phone, c.secondaryPhone, c.instagramLink, c.facebookLink, c.twitterLink, c.linkedinLink, 
             c.website, c.gstNo, c.timezone, c.dateFormat, c.currency,
-            c.logoUrl, c.faviconUrl
+            c.logoUrl, c.faviconUrl, sidebarOrderJson
         ]);
         res.json({ success: true });
     } catch (err) { 

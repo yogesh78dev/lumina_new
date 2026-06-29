@@ -1,22 +1,38 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import QRCode from 'qrcode';
+import React, { useMemo, useState } from 'react';
 import { Lead } from '../../types';
 import { useCrm } from '../../hooks/useCrm';
 
 interface ProformaInvoiceModalProps {
-  isOpen: boolean;
-  onClose: () => void;
   lead: Lead;
+  onBack?: () => void;
 }
 
-const ProformaInvoiceModal: React.FC<ProformaInvoiceModalProps> = ({ isOpen, onClose, lead }) => {
+const KOTAK_PAYMENT_QR = '/assets/proforma-kotak-qr.jpg';
+const UNION_PAYMENT_QR = '/assets/proforma-union-qr.jpg';
+const DEFAULT_LOGO_URL = 'https://www.luminainfotech.com/assets/img/logo.svg';
+const DEFAULT_HANDLING_TAX_PERCENT = '18';
+
+const chargeLabels = {
+  serviceCharge: 'Service Charge',
+  handlingCharges: 'Handling Charges',
+  otherCharges: 'Other'
+} as const;
+
+type ChargeKey = keyof typeof chargeLabels;
+
+const formatAmount = (value: number) => value.toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+const ProformaInvoiceModal: React.FC<ProformaInvoiceModalProps> = ({ lead, onBack }) => {
   const { companyDetails } = useCrm();
-  const [amount, setAmount] = useState('');
   const [serviceName, setServiceName] = useState(lead.service || '');
+  const [charges, setCharges] = useState<Record<ChargeKey, string>>({
+    serviceCharge: '',
+    handlingCharges: '',
+    otherCharges: ''
+  });
+  const [handlingTaxPercent, setHandlingTaxPercent] = useState(DEFAULT_HANDLING_TAX_PERCENT);
   const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
   const [remarks, setRemarks] = useState('');
-  const [qrDataUrl, setQrDataUrl] = useState('');
 
   const proformaNumber = useMemo(() => {
     const idPart = String(lead.id).replace(/\D/g, '').slice(-6) || String(lead.id);
@@ -24,67 +40,53 @@ const ProformaInvoiceModal: React.FC<ProformaInvoiceModalProps> = ({ isOpen, onC
     return `PFI-${stamp}-${idPart}`;
   }, [lead.id]);
 
-  const qrPayload = useMemo(() => {
-    const numericAmount = Number(amount || 0);
-    return JSON.stringify({
-      type: 'PROFORMA_INVOICE',
-      proformaNumber,
-      leadId: lead.id,
-      leadName: lead.name,
-      amount: Number.isFinite(numericAmount) ? numericAmount : 0,
-      dueDate
+  const chargeItems = useMemo(() => {
+    return (Object.keys(chargeLabels) as ChargeKey[]).map((key) => {
+      const amount = Number(charges[key] || 0);
+      return {
+        key,
+        label: chargeLabels[key],
+        amount: Number.isFinite(amount) ? amount : 0
+      };
     });
-  }, [amount, dueDate, lead.id, lead.name, proformaNumber]);
+  }, [charges]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const generateQr = async () => {
-      try {
-        const url = await QRCode.toDataURL(qrPayload, {
-          width: 220,
-          margin: 1,
-          errorCorrectionLevel: 'M'
-        });
-        if (!cancelled) setQrDataUrl(url);
-      } catch (err) {
-        if (!cancelled) setQrDataUrl('');
-      }
-    };
-    generateQr();
-    return () => { cancelled = true; };
-  }, [qrPayload]);
+  const totalAmount = useMemo(() => chargeItems.reduce((sum, item) => sum + item.amount, 0), [chargeItems]);
+  const additionalChargesTaxAmount = useMemo(() => {
+    const handlingCharge = Number(charges.handlingCharges || 0);
+    const otherCharge = Number(charges.otherCharges || 0);
+    const taxPercent = Number(handlingTaxPercent || 0);
+    if (!Number.isFinite(handlingCharge) || !Number.isFinite(otherCharge) || !Number.isFinite(taxPercent)) return 0;
+    return (handlingCharge + otherCharge) * (taxPercent / 100);
+  }, [charges.handlingCharges, charges.otherCharges, handlingTaxPercent]);
+  const grandTotal = totalAmount + additionalChargesTaxAmount;
+  const logoUrl = companyDetails.logoUrl || DEFAULT_LOGO_URL;
 
   const handlePrint = () => {
     window.print();
   };
 
-  if (!isOpen) return null;
+  const handleChargeChange = (key: ChargeKey, value: string) => {
+    setCharges(prev => ({ ...prev, [key]: value }));
+  };
 
-  const modalContent = (
-    <div className="fixed inset-0 bg-black/60 z-[11000] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-5xl max-h-[92vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="p-4 border-b flex items-center justify-between">
+  return (
+    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div className="p-4 border-b flex items-center justify-between">
+        <div>
           <h3 className="text-lg font-semibold text-gray-800">Generate Proforma Invoice</h3>
-          <button onClick={onClose} className="w-9 h-9 rounded-full hover:bg-gray-100 text-gray-500">
-            <i className="ri-close-line text-xl"></i>
-          </button>
+          <p className="text-xs text-gray-500 mt-0.5">Create and print a proforma invoice for {lead.name}</p>
         </div>
+        {onBack && (
+          <button onClick={onBack} className="px-3 py-2 rounded-lg border text-sm font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+            <i className="ri-arrow-left-line"></i>
+            Back
+          </button>
+        )}
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-5">
           <div className="lg:col-span-1 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Amount (INR) <span className="text-primary">*</span></label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="mt-1 input-field"
-                placeholder="Enter amount"
-                required
-              />
-            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Service</label>
               <input
@@ -94,6 +96,37 @@ const ProformaInvoiceModal: React.FC<ProformaInvoiceModalProps> = ({ isOpen, onC
                 className="mt-1 input-field"
                 placeholder="Service description"
               />
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-gray-800">Charges</p>
+              {chargeItems.map((item) => (
+                <div key={item.key}>
+                  <label className="block text-sm font-medium text-gray-700">
+                    {item.label}{item.key === 'serviceCharge' && <span className="text-primary"> *</span>}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={charges[item.key]}
+                    onChange={(e) => handleChargeChange(item.key, e.target.value)}
+                    className="mt-1 input-field"
+                    placeholder="0.00"
+                  />
+                </div>
+              ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Tax on Handling + Other (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={handlingTaxPercent}
+                  onChange={(e) => setHandlingTaxPercent(e.target.value)}
+                  className="mt-1 input-field"
+                  placeholder="18"
+                />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Due Date</label>
@@ -111,7 +144,7 @@ const ProformaInvoiceModal: React.FC<ProformaInvoiceModalProps> = ({ isOpen, onC
             </div>
             <button
               onClick={handlePrint}
-              disabled={!amount || Number(amount) <= 0}
+              disabled={totalAmount <= 0}
               className="w-full py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <i className="ri-printer-line mr-2"></i>
@@ -119,72 +152,133 @@ const ProformaInvoiceModal: React.FC<ProformaInvoiceModalProps> = ({ isOpen, onC
             </button>
           </div>
 
-          <div className="lg:col-span-2 border rounded-lg p-5 bg-white proforma-print-area">
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">{companyDetails.companyName || 'Company'}</h2>
-                <p className="text-xs text-gray-500 mt-1">{companyDetails.address || ''}</p>
-                <p className="text-xs text-gray-500">{companyDetails.city || ''} {companyDetails.pincode || ''}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs uppercase tracking-wider text-gray-500">Proforma Invoice</p>
-                <p className="font-semibold text-gray-800">{proformaNumber}</p>
-                <p className="text-xs text-gray-500 mt-1">Date: {new Date().toLocaleDateString()}</p>
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-500 text-xs uppercase">Bill To</p>
-                <p className="font-semibold text-gray-800">{lead.name}</p>
-                <p className="text-gray-600">{lead.phone}</p>
-                <p className="text-gray-600">{lead.email || '-'}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-gray-500 text-xs uppercase">Due Date</p>
-                <p className="font-semibold text-gray-800">{dueDate || '-'}</p>
-              </div>
-            </div>
-
-            <div className="mt-6 border rounded-lg overflow-hidden">
-              <div className="grid grid-cols-12 bg-gray-50 text-xs font-semibold text-gray-700 border-b">
-                <div className="col-span-7 p-3">Description</div>
-                <div className="col-span-2 p-3 text-right">Qty</div>
-                <div className="col-span-3 p-3 text-right">Amount</div>
-              </div>
-              <div className="grid grid-cols-12 text-sm">
-                <div className="col-span-7 p-3">{serviceName || lead.service || 'Lead Service'}</div>
-                <div className="col-span-2 p-3 text-right">1</div>
-                <div className="col-span-3 p-3 text-right">₹{Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Scan To Pay</p>
-                {qrDataUrl ? (
-                  <img src={qrDataUrl} alt="Proforma QR" className="w-36 h-36 border rounded-md bg-white" />
-                ) : (
-                  <div className="w-36 h-36 border rounded-md bg-gray-50 flex items-center justify-center text-gray-400 text-xs">
-                    Generating QR...
+          <div className="lg:col-span-2 bg-white proforma-print-area">
+            <div className="invoice-sheet">
+              <div className="invoice-header">
+                <div className="logo-block">
+                  <img src={logoUrl} alt={companyDetails.companyName || 'Company Logo'} className="invoice-logo" />
+                  <div>
+                    <h2>{companyDetails.companyName || 'Lumina Infotech'}</h2>
+                    <p className="powered-by-line">Powered by My Way Destination</p>
+                    <p>{companyDetails.address || 'BILL ADDRESS: C11/33, 2nd Floor, Near Amul Booth'}</p>
+                    <p>{[companyDetails.city, companyDetails.state, companyDetails.pincode].filter(Boolean).join(', ') || 'Sector 03, Rohini, 110085'}</p>
+                    {companyDetails.gstNo && <p>GST-{companyDetails.gstNo}</p>}
                   </div>
-                )}
-                <p className="text-[10px] text-gray-500 mt-1">Contains proforma reference + amount</p>
+                </div>
+                <div className="invoice-meta">
+                  <h1>INVOICE</h1>
+                  <p><span>Date:</span> {new Date().toLocaleDateString()}</p>
+                  <p><span>Invoice:</span> {proformaNumber}</p>
+                  <p><span>Due:</span> {dueDate || '-'}</p>
+                </div>
               </div>
-              <div className="text-right ml-auto">
-                <p className="text-sm text-gray-600">Total</p>
-                <p className="text-2xl font-black text-gray-900">₹{Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+
+              <div className="address-grid">
+                <div>
+                  <p className="section-label">Bill Address</p>
+                  <p>{companyDetails.address || 'C11/33, 2nd Floor, Near Amul Booth'}</p>
+                  <p>{[companyDetails.city, companyDetails.state, companyDetails.pincode].filter(Boolean).join(', ') || 'Sector 03, Rohini, 110085'}</p>
+                  {companyDetails.gstNo && <p>GST-{companyDetails.gstNo}</p>}
+                </div>
+                <div>
+                  <p className="section-label">Buyer / Bill To</p>
+                  <p className="buyer-name">{lead.name}</p>
+                  <p>{lead.phone}</p>
+                  <p>{lead.email || '-'}</p>
+                  <p>{lead.country || ''}</p>
+                </div>
+              </div>
+
+              <div className="description-line">
+                <span>Description</span>
+                <strong>{serviceName || lead.service || 'Lead Service'}</strong>
+              </div>
+
+              <table className="invoice-table">
+                <thead>
+                  <tr>
+                    <th>Particulars</th>
+                    <th>Unit Price</th>
+                    <th>Qty</th>
+                    <th>Line Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chargeItems.map((item) => (
+                    <tr key={item.key}>
+                      <td>
+                        {item.label}
+                        {item.key === 'serviceCharge' && (
+                          <span>{serviceName || lead.service || 'Lead Service'}</span>
+                        )}
+                      </td>
+                      <td>{formatAmount(item.amount)}</td>
+                      <td>{item.amount > 0 ? 1 : 0}</td>
+                      <td>{formatAmount(item.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="payment-grid">
+                <div className="bank-panel">
+                  <h3>Bank Detail</h3>
+                  <div className="bank-detail-list">
+                    <div className="bank-detail-row">
+                      <div>
+                        <p><strong>Bank Name :</strong> KOTAK MAHINDRA BANK</p>
+                        <p><strong>Account Name :</strong> MYWAY DESTINATION</p>
+                        <p><strong>Account no :</strong> 5448071728</p>
+                        <p><strong>IFSC code :</strong> KKBK0000197</p>
+                        <p><strong>Branch :</strong> Rohini Sec 8</p>
+                      </div>
+                      <img src={KOTAK_PAYMENT_QR} alt="Kotak payment QR" className="bank-qr" />
+                    </div>
+                    <div className="bank-detail-row">
+                      <div>
+                        <p><strong>Bank Name :</strong> UNION BANK</p>
+                        <p><strong>Account Name :</strong> MYWAY DESTINATION</p>
+                        <p><strong>Account no :</strong> 254911010000044</p>
+                        <p><strong>IFSC code :</strong> UBIN0825492</p>
+                        <p><strong>Branch :</strong> Rohini Sector 3</p>
+                      </div>
+                      <img src={UNION_PAYMENT_QR} alt="Union Bank payment QR" className="bank-qr" />
+                    </div>
+                  </div>
+                  <div className="upi-grid">
+                    <p><strong>UPI PAY ID</strong></p>
+                    <p>mywaydestination@kotak</p>
+                    <p><strong>UPI PAY ID</strong></p>
+                    <p>mywaydestination@uboi</p>
+                  </div>
+                </div>
+
+                <div className="summary-panel">
+                  <div><span>Total</span><strong>{formatAmount(totalAmount)}</strong></div>
+                  <div><span>CSGT + SGST @{Number(handlingTaxPercent || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}%</span><strong>{formatAmount(additionalChargesTaxAmount)}</strong></div>
+                  <div className="grand-total"><span>Total</span><strong>{formatAmount(grandTotal)}</strong></div>
+                  <section className='mt-2'>
+                    <p><strong>* RECEIPT :</strong> Receipt on our official receipt duly signed by our cashier only will be considered valid.</p>
+                    <p><strong>* CHEQUE :</strong> All cheques should be drawn in favour of "MYWAY DESTINATION" and crossed A/C Payee.</p>
+                    <p>* Please add bank charges. Interest @18% per annum will be charged if not paid within 15 days.</p>
+                  </section>
+                </div>
+              </div>
+
+              <div className="invoice-notes">
+                {/* <p><strong>* RECEIPT :</strong> Receipt on our official receipt duly signed by our cashier only will be considered valid.</p>
+                <p><strong>* CHEQUE :</strong> All cheques should be drawn in favour of "MYWAY DESTINATION" and crossed A/C Payee.</p>
+                <p>* Please add bank charges. Interest @18% per annum will be charged if not paid within 15 days.</p> */}
+                <p>Note: This is to be informed that after generating invoice,if anyone fails to update GST number
+with in 4 days Myway Destination will not be liable for any amendment in bill or to add GST number.</p>
+                {remarks && <p><strong>Remarks:</strong> {remarks}</p>}
+              </div>
+
+              <div className="declaration">
+                I declare that the info. mentioned above is true and correct to the best of my knowledge.
               </div>
             </div>
-
-            {remarks && (
-              <div className="mt-5 border-t pt-3">
-                <p className="text-xs uppercase text-gray-500">Remarks</p>
-                <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{remarks}</p>
-              </div>
-            )}
           </div>
-        </div>
       </div>
 
       <style>{`
@@ -201,7 +295,220 @@ const ProformaInvoiceModal: React.FC<ProformaInvoiceModalProps> = ({ isOpen, onC
           border-color: #c4161c;
           box-shadow: 0 0 0 2px #c4161c20;
         }
+        .invoice-sheet {
+          width: 100%;
+          max-width: 794px;
+          min-height: 1123px;
+          margin: 0 auto;
+          padding: 22px;
+          border: 1px solid #111827;
+          color: #111827;
+          font-family: Arial, sans-serif;
+          font-size: 12px;
+          line-height: 1.35;
+        }
+        .invoice-header {
+          display: flex;
+          justify-content: space-between;
+          gap: 20px;
+          border-bottom: 2px solid #111827;
+          padding-bottom: 12px;
+        }
+        .logo-block {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          max-width: 68%;
+        }
+        .invoice-logo {
+          width: 125px;
+          max-height: 64px;
+          object-fit: contain;
+        }
+        .logo-block h2 {
+          font-size: 17px;
+          font-weight: 800;
+          margin: 0 0 4px;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .logo-block p,
+        .invoice-meta p,
+        .address-grid p,
+        .bank-panel p,
+        .invoice-notes p {
+          margin: 0;
+        }
+        .powered-by-line {
+          font-size: 11px;
+          font-weight: 700;
+          color: #4b5563;
+          margin-bottom: 4px !important;
+          text-transform: uppercase;
+        }
+        .invoice-meta {
+          text-align: right;
+          min-width: 210px;
+        }
+        .invoice-meta h1 {
+          margin: 0 0 8px;
+          font-size: 28px;
+          font-weight: 900;
+          letter-spacing: 0;
+        }
+        .invoice-meta span {
+          font-weight: 700;
+        }
+        .address-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+          margin-top: 14px;
+          border: 1px solid #111827;
+        }
+        .address-grid > div {
+          padding: 10px;
+        }
+        .address-grid > div:first-child {
+          border-right: 1px solid #111827;
+        }
+        .section-label {
+          font-weight: 800;
+          text-transform: uppercase;
+          margin-bottom: 4px !important;
+        }
+        .buyer-name {
+          font-weight: 800;
+          text-transform: uppercase;
+        }
+        .description-line {
+          display: flex;
+          gap: 10px;
+          margin-top: 12px;
+          padding: 8px 10px;
+          border: 1px solid #111827;
+        }
+        .description-line span {
+          font-weight: 800;
+          min-width: 90px;
+        }
+        .invoice-table {
+          width: 100%;
+          margin-top: 12px;
+          border-collapse: collapse;
+        }
+        .invoice-table th,
+        .invoice-table td {
+          border: 1px solid #111827;
+          padding: 8px;
+          vertical-align: top;
+        }
+        .invoice-table th {
+          background: #f3f4f6;
+          text-align: left;
+          font-weight: 800;
+        }
+        .invoice-table th:nth-child(n+2),
+        .invoice-table td:nth-child(n+2) {
+          text-align: right;
+          width: 110px;
+        }
+        .invoice-table td span {
+          display: block;
+          color: #4b5563;
+          font-size: 11px;
+          margin-top: 2px;
+        }
+        .payment-grid {
+          display: grid;
+          grid-template-columns: 1fr 210px;
+          gap: 14px;
+          margin-top: 14px;
+        }
+        .bank-panel,
+        .summary-panel {
+          border: 1px solid #111827;
+          padding: 10px;
+        }
+        .bank-panel h3 {
+          margin: 0 0 8px;
+          font-size: 13px;
+          text-transform: uppercase;
+          font-weight: 900;
+        }
+        .bank-detail-list {
+          display: flex;
+          flex-direction: column;
+          border-top: 1px solid #111827;
+        }
+        .bank-detail-row {
+          display: grid;
+          grid-template-columns: 1fr 96px;
+          gap: 12px;
+          align-items: center;
+          padding: 8px 0;
+          border-bottom: 1px solid #111827;
+        }
+        .bank-qr {
+          width: 96px;
+          height: 96px;
+          object-fit: contain;
+          justify-self: end;
+        }
+        .upi-grid {
+          display: grid;
+          grid-template-columns: 110px 1fr;
+          gap: 4px 12px;
+          padding-top: 8px;
+          font-size: 12px;
+        }
+        .summary-panel {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          align-items: stretch;
+        }
+        .summary-panel > div {
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          border-bottom: 1px solid #d1d5db;
+          padding-bottom: 6px;
+        }
+        .summary-panel .grand-total {
+          border-bottom: 2px solid #111827;
+          font-size: 15px;
+          font-weight: 900;
+        }
+        .payment-terms {
+          margin-top: auto;
+          border-top: 1px solid #111827;
+          padding-top: 10px;
+          font-size: 11px;
+        }
+        .payment-terms h4 {
+          margin: 0 0 6px;
+          font-size: 12px;
+          font-weight: 900;
+          text-transform: uppercase;
+        }
+        .payment-terms p {
+          margin: 0 0 4px;
+          font-weight: 700;
+        }
+        .invoice-notes {
+          margin-top: 14px;
+          border: 1px solid #111827;
+          padding: 10px;
+          font-size: 11px;
+        }
+        .declaration {
+          margin-top: 14px;
+          font-weight: 700;
+          text-align: center;
+        }
         @media print {
+          @page { size: A4; margin: 10mm; }
           body * { visibility: hidden; }
           .proforma-print-area, .proforma-print-area * { visibility: visible; }
           .proforma-print-area {
@@ -211,12 +518,17 @@ const ProformaInvoiceModal: React.FC<ProformaInvoiceModalProps> = ({ isOpen, onC
             width: 100%;
             border: none !important;
           }
+          .invoice-sheet {
+            width: 100%;
+            min-height: auto;
+            border: none;
+            padding: 0;
+            margin: 0;
+          }
         }
       `}</style>
     </div>
   );
-
-  return createPortal(modalContent, document.body);
 };
 
 export default ProformaInvoiceModal;
