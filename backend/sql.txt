@@ -40,6 +40,15 @@ CREATE TABLE lead_sources (
 CREATE TABLE lead_statuses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
+    color VARCHAR(20) DEFAULT '#2563eb',
+    progress INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE lead_categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -118,6 +127,8 @@ CREATE TABLE leads (
     phone VARCHAR(20) NOT NULL,
     email VARCHAR(100),
     service VARCHAR(255),
+    lead_type VARCHAR(100),
+    lead_category VARCHAR(100),
     country VARCHAR(100),
     lead_source VARCHAR(100),
     lead_status VARCHAR(100),
@@ -503,7 +514,8 @@ INSERT INTO users (name, username, email, password, role_id, role_name, status) 
 
 -- Master Data
 INSERT INTO lead_sources (name) VALUES ('Google'), ('IVR'), ('Website Inquiry'), ('Social Media'), ('Walk-In'), ('Direct/Rep'), ('Agent');
-INSERT INTO lead_statuses (name) VALUES ('New Lead'), ('Follow-up'), ('Won'), ('Lost');
+INSERT INTO lead_statuses (name, color, progress) VALUES ('New Lead', '#2563eb', 10), ('Follow-up', '#f59e0b', 50), ('Won', '#16a34a', 100), ('Lost', '#dc2626', 0);
+INSERT INTO lead_categories (name) VALUES ('Domestic Package'), ('International Package'), ('Study Visa'), ('Business Trip'), ('Package'), ('Passport');
 INSERT INTO application_statuses (name) VALUES ('Documents Pending'), ('Documents Collected'), ('Application Lodged'), ('Visa Approved'), ('Visa Rejected');
 INSERT INTO passport_statuses (name) VALUES ('With Client'), ('With Agency'), ('Submitted to Embassy'), ('Dispatched to Client');
 INSERT INTO document_types (name) VALUES ('Passport Copy'), ('Photograph'), ('Bank Statement'), ('Flight Itinerary'), ('Hotel Booking');

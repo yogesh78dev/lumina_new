@@ -10,20 +10,25 @@ interface StatusItem {
     // FIX: Allow id to be string or number to accommodate various CRM data types
     id: string | number;
     name: string;
+    color?: string;
+    progress?: number;
 }
 
 interface StatusManagerProps {
     title: string;
     items: StatusItem[];
-    onAdd: (name: string) => void;
-    onUpdate: (item: StatusItem) => void;
+    onAdd: (data: any) => Promise<void> | void;
+    onUpdate: (item: StatusItem) => Promise<void> | void;
     // FIX: Match signature to allow string or number id
-    onDelete: (id: string | number) => void;
+    onDelete: (id: string | number) => Promise<void> | void;
+    enableColorProgress?: boolean;
 }
 
-const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUpdate, onDelete }) => {
+const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUpdate, onDelete, enableColorProgress = false }) => {
     const { fireToast, confirmDelete } = useSwal();
     const [name, setName] = useState('');
+    const [color, setColor] = useState('#2563eb');
+    const [progress, setProgress] = useState('0');
     const [editingItem, setEditingItem] = useState<StatusItem | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -32,8 +37,18 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
     useEffect(() => {
         if (!editingItem) {
             setName('');
+            setColor('#2563eb');
+            setProgress('0');
         }
     }, [editingItem]);
+
+    useEffect(() => {
+        setEditingItem(null);
+        setName('');
+        setColor('#2563eb');
+        setProgress('0');
+        setSearchTerm('');
+    }, [title]);
 
     const filteredItems = useMemo(() => {
         return sortedItems.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -42,25 +57,34 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
     const handleEditClick = (item: StatusItem) => {
         setEditingItem(item);
         setName(item.name);
+        setColor(item.color || '#2563eb');
+        setProgress(String(item.progress ?? 0));
     };
 
     const handleCancelEdit = () => {
         setEditingItem(null);
         setName('');
+        setColor('#2563eb');
+        setProgress('0');
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (name.trim() === '') return;
+        const progressValue = Math.max(0, Math.min(100, Number(progress || 0)));
 
-        if (editingItem) {
-            onUpdate({ ...editingItem, name });
-            fireToast('success', `${title} updated successfully.`);
-        } else {
-            onAdd(name);
-            fireToast('success', `${title} added successfully.`);
+        try {
+            if (editingItem) {
+                await onUpdate({ ...editingItem, name: name.trim(), ...(enableColorProgress ? { color, progress: progressValue } : {}) });
+                fireToast('success', `${title} updated successfully.`);
+            } else {
+                await onAdd(enableColorProgress ? { name: name.trim(), color, progress: progressValue } : name.trim());
+                fireToast('success', `${title} added successfully.`);
+            }
+            handleCancelEdit();
+        } catch (error: any) {
+            fireToast('error', error?.message || `Failed to save ${title}.`);
         }
-        handleCancelEdit();
     };
 
     const handleDeleteClick = async (item: StatusItem) => {
@@ -69,8 +93,12 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
             html: `Are you sure you want to delete "<strong>${item.name}</strong>"? This action cannot be undone.`,
         });
         if (result) {
-            onDelete(item.id);
-            fireToast('success', `${title} "${item.name}" deleted.`);
+            try {
+                await onDelete(item.id);
+                fireToast('success', `${title} "${item.name}" deleted.`);
+            } catch (error: any) {
+                fireToast('error', error?.message || `Failed to delete ${title}.`);
+            }
         }
     };
 
@@ -90,6 +118,40 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
                             placeholder={`Enter ${title} name`}
                         />
                     </div>
+                    {enableColorProgress && (
+                        <>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Color <span className="text-primary">*</span></label>
+                                <div className="mt-1 flex items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={color}
+                                        onChange={(e) => setColor(e.target.value)}
+                                        className="h-10 w-12 border border-gray-300 rounded-md bg-white p-1"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={color}
+                                        onChange={(e) => setColor(e.target.value)}
+                                        className="w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm focus:ring-primary focus:border-primary"
+                                        placeholder="#2563eb"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Progress / Completion (%)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={progress}
+                                    onChange={(e) => setProgress(e.target.value)}
+                                    className="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm focus:ring-primary focus:border-primary"
+                                    placeholder="0"
+                                />
+                            </div>
+                        </>
+                    )}
                     <div className="flex space-x-2">
                         <button type="submit" className="px-4 py-2 bg-primary text-white font-semibold rounded-md hover:bg-primary/90 text-sm w-full">
                             {editingItem ? 'Update' : 'Submit'}
@@ -121,6 +183,8 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
                                 <th className="p-3 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 group" onClick={() => requestSort('name')}>
                                     <div className="flex items-center">Name {sortConfig?.key === 'name' ? (<i className={`ml-1 ${sortConfig.direction === 'ascending' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}`}></i>) : (<i className="ml-1 text-gray-400 ri-arrow-up-down-line opacity-0 group-hover:opacity-100 transition-opacity"></i>)}</div>
                                 </th>
+                                {enableColorProgress && <th className="p-3 text-left font-semibold text-gray-600">Color</th>}
+                                {enableColorProgress && <th className="p-3 text-left font-semibold text-gray-600">Progress</th>}
                                 <th className="p-3 text-left font-semibold text-gray-600">Action</th>
                             </tr>
                         </thead>
@@ -129,6 +193,15 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
                                 <tr key={item.id}>
                                     <td className="p-3 text-gray-600">{index + 1}</td>
                                     <td className="p-3 font-medium text-gray-800">{item.name}</td>
+                                    {enableColorProgress && (
+                                        <td className="p-3">
+                                            <span className="inline-flex items-center gap-2">
+                                                <span className="w-5 h-5 rounded-full border" style={{ backgroundColor: item.color || '#2563eb' }}></span>
+                                                <span className="font-mono text-xs text-gray-600">{item.color || '#2563eb'}</span>
+                                            </span>
+                                        </td>
+                                    )}
+                                    {enableColorProgress && <td className="p-3 text-gray-700">{item.progress ?? 0}%</td>}
                                     <td className="p-3">
                                         <div className="flex items-center space-x-1">
                                             <Tooltip content={`Edit ${title}`}>
@@ -146,7 +219,7 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
                                 </tr>
                             ))}
                             {filteredItems.length === 0 && (
-                                <tr><td colSpan={3} className="text-center py-6 text-gray-500">No items found.</td></tr>
+                                <tr><td colSpan={enableColorProgress ? 5 : 3} className="text-center py-6 text-gray-500">No items found.</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -157,9 +230,10 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
 };
 
 const CRMConfiguration: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'pipeline' | 'application' | 'passport' | 'document' | 'remark' | 'source' | 'service' | 'lost'>('pipeline');
+    const [activeTab, setActiveTab] = useState<'pipeline' | 'category' | 'application' | 'passport' | 'document' | 'remark' | 'source' | 'service' | 'lost'>('pipeline');
     const { 
         leadStatuses, addLeadStatus, updateLeadStatus, deleteLeadStatus,
+        leadCategories, addLeadCategory, updateLeadCategory, deleteLeadCategory,
         applicationStatuses, addApplicationStatus, updateApplicationStatus, deleteApplicationStatus,
         passportStatuses, addPassportStatus, updatePassportStatus, deletePassportStatus,
         documentTypes, addDocumentType, updateDocumentType, deleteDocumentType,
@@ -179,7 +253,9 @@ const CRMConfiguration: React.FC = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'pipeline':
-                return <StatusManager title="Lead Status" items={leadStatuses} onAdd={addLeadStatus} onUpdate={updateLeadStatus} onDelete={deleteLeadStatus} />;
+                return <StatusManager title="Lead Status" items={leadStatuses} onAdd={addLeadStatus} onUpdate={updateLeadStatus} onDelete={deleteLeadStatus} enableColorProgress />;
+            case 'category':
+                return <StatusManager title="Lead Category" items={leadCategories} onAdd={addLeadCategory} onUpdate={updateLeadCategory} onDelete={deleteLeadCategory} />;
             // case 'application':
             //     return <StatusManager title="Application Status" items={applicationStatuses} onAdd={addApplicationStatus} onUpdate={updateApplicationStatus} onDelete={deleteApplicationStatus} />;
             // case 'passport':
@@ -191,7 +267,7 @@ const CRMConfiguration: React.FC = () => {
             case 'source':
                 return <StatusManager title="Lead Source" items={leadSources} onAdd={addLeadSource} onUpdate={updateLeadSource} onDelete={deleteLeadSource} />;
             case 'service':
-                return <StatusManager title="Service Type" items={serviceTypes} onAdd={addServiceType} onUpdate={updateServiceType} onDelete={deleteServiceType} />;
+                return <StatusManager title="Lead Type" items={serviceTypes} onAdd={addServiceType} onUpdate={updateServiceType} onDelete={deleteServiceType} />;
             case 'lost':
                 return <StatusManager title="Lost Reason" items={lostReasons} onAdd={addLostReason} onUpdate={updateLostReason} onDelete={deleteLostReason} />;
             default:
@@ -203,12 +279,13 @@ const CRMConfiguration: React.FC = () => {
         <div className="container mx-auto">
             <div className="flex space-x-2 mb-6 p-2 bg-white rounded-lg shadow-sm w-full overflow-x-auto thin-scrollbar">
                 <button onClick={() => setActiveTab('pipeline')} className={tabClass('pipeline')}>Lead Status</button>
+                <button onClick={() => setActiveTab('category')} className={tabClass('category')}>Lead Category</button>
                 {/* <button onClick={() => setActiveTab('application')} className={tabClass('application')}>Application Status</button>
                 <button onClick={() => setActiveTab('passport')} className={tabClass('passport')}>Passport Status</button> */}
                 <button onClick={() => setActiveTab('document')} className={tabClass('document')}>Document List</button>
                 <button onClick={() => setActiveTab('remark')} className={tabClass('remark')}>Remark Status</button>
                 <button onClick={() => setActiveTab('source')} className={tabClass('source')}>Lead Source</button>
-                <button onClick={() => setActiveTab('service')} className={tabClass('service')}>Service Type</button>
+                <button onClick={() => setActiveTab('service')} className={tabClass('service')}>Lead Type</button>
                 <button onClick={() => setActiveTab('lost')} className={tabClass('lost')}>Lost Reason</button>
             </div>
             <div>

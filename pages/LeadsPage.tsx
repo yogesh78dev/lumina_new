@@ -17,6 +17,7 @@ import SearchInput from '../components/common/SearchInput';
 import SearchableDropdown from '../components/common/SearchableDropdown';
 import { capitalizeName } from '../utils/formatters';
 import Tooltip from '../components/common/Tooltip';
+import { getStatusVisual } from '../utils/statusColors';
 
 
 import { allCountries } from '../utils/countries';
@@ -28,6 +29,8 @@ const ALL_LEAD_COLUMNS: LeadTableColumn[] = [
     { key: 'phone', label: 'Phone Number' },
     { key: 'email', label: 'Email' },
     { key: 'country', label: 'Country' },
+    { key: 'leadCategory', label: 'Lead Category' },
+    { key: 'leadType', label: 'Lead Type' },
     { key: 'service', label: 'Service' },
     { key: 'notes', label: 'Notes' },
     { key: 'leadStatus', label: 'Lead Status' },
@@ -110,12 +113,13 @@ const LeadsPage: React.FC = () => {
 
   const statusTabs = useMemo(() => {
     const baseTabs = [
-      { key: 'All', name: 'All Leads' },
-      { key: 'Unassigned', name: 'Unassigned' }
+      { key: 'All', name: 'All Leads', color: '#334155' },
+      { key: 'Unassigned', name: 'Unassigned', color: '#ef4444' }
     ];
     const dynamicStatusTabs = leadStatuses.map(status => ({
       key: status.name,
-      name: status.name
+      name: status.name,
+      color: status.color || '#2563eb'
     }));
     return [...baseTabs, ...dynamicStatusTabs];
   }, [leadStatuses]);
@@ -169,6 +173,7 @@ const LeadsPage: React.FC = () => {
           lead.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
           lead.phone.includes(searchTerm) ||
           (lead.service && lead.service.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (lead.leadType && lead.leadType.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase()))
         )
       );
@@ -321,12 +326,17 @@ const LeadsPage: React.FC = () => {
 
   const tabClass = (status: string) => {
     const isActive = activeStatus === status;
-    return `whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+    return `whitespace-nowrap pb-3 px-2 border-b-2 font-bold text-sm transition-colors duration-200 rounded-t-md ${
       isActive
-        ? 'border-primary text-primary'
+        ? ''
         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
     }`;
   };
+
+  const selectedBulkStatusVisual = useMemo(() => {
+    const selectedStatus = leadStatuses.find(status => status.name === bulkStatus);
+    return getStatusVisual(selectedStatus?.color);
+  }, [leadStatuses, bulkStatus]);
     
   return (
     <>
@@ -346,11 +356,42 @@ const LeadsPage: React.FC = () => {
              {view === 'table' && (
                 <div className="border-b border-gray-200 mb-4">
                     <nav className="-mb-px flex flex-wrap gap-x-6 gap-y-2">
-                        {statusTabs.map(tab => (
-                          <button key={tab.key} onClick={() => setSearchParams({ status: tab.key })} className={tabClass(tab.key)}>
-                            {tab.name}
+                        {statusTabs.map(tab => {
+                          const visual = getStatusVisual(tab.color);
+                          const count = tab.key === 'All'
+                            ? leads.length
+                            : tab.key === 'Unassigned'
+                              ? leads.filter(isUnassignedLead).length
+                              : leads.filter(lead => lead.leadStatus === tab.key).length;
+                          const isActiveTab = activeStatus === tab.key;
+                          return (
+                          <button
+                            key={tab.key}
+                            onClick={() => setSearchParams({ status: tab.key })}
+                            className={tabClass(tab.key)}
+                            style={isActiveTab ? {
+                              color: visual.color,
+                              borderColor: visual.color,
+                              backgroundColor: visual.backgroundColor
+                            } : undefined}
+                          >
+                            <span className="inline-flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: visual.color }}></span>
+                              {tab.name}
+                              <span
+                                className="px-1.5 py-0.5 rounded-full text-[10px] border"
+                                style={{
+                                  color: isActiveTab ? visual.color : '#64748b',
+                                  borderColor: isActiveTab ? visual.borderColor : '#e5e7eb',
+                                  backgroundColor: isActiveTab ? visual.strongBackgroundColor : '#f8fafc'
+                                }}
+                              >
+                                {count}
+                              </span>
+                            </span>
                           </button>
-                        ))}
+                          );
+                        })}
                     </nav>
                 </div>
             )}
@@ -496,6 +537,11 @@ const LeadsPage: React.FC = () => {
                             value={bulkStatus}
                             onChange={(e) => setBulkStatus(e.target.value)}
                             className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-white shadow-sm"
+                            style={bulkStatus ? {
+                                color: selectedBulkStatusVisual.color,
+                                borderColor: selectedBulkStatusVisual.borderColor,
+                                backgroundColor: selectedBulkStatusVisual.backgroundColor
+                            } : undefined}
                         >
                             <option value="">Change Status...</option>
                             {leadStatuses.map(status => (
@@ -505,7 +551,8 @@ const LeadsPage: React.FC = () => {
                         <button 
                             onClick={handleBulkStatusChange}
                             disabled={!bulkStatus}
-                            className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm transition-colors"
+                            className="px-3 py-1.5 text-sm font-medium text-white rounded-md disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm transition-colors"
+                            style={bulkStatus ? { backgroundColor: selectedBulkStatusVisual.color } : undefined}
                         >
                             Update
                         </button>

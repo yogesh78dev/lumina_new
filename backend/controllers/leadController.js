@@ -3,6 +3,21 @@ const db = require('../db');
 const { logAction } = require('../utils/logger');
 const { createNotification } = require('./notificationController');
 
+let leadColumnsReady = false;
+
+const ensureLeadColumns = async () => {
+    if (leadColumnsReady) return;
+    const [leadTypeColumns] = await db.execute('SHOW COLUMNS FROM leads LIKE "lead_type"');
+    if (leadTypeColumns.length === 0) {
+        await db.execute('ALTER TABLE leads ADD COLUMN lead_type VARCHAR(100) NULL AFTER service');
+    }
+    const [categoryColumns] = await db.execute('SHOW COLUMNS FROM leads LIKE "lead_category"');
+    if (categoryColumns.length === 0) {
+        await db.execute('ALTER TABLE leads ADD COLUMN lead_category VARCHAR(100) NULL AFTER service');
+    }
+    leadColumnsReady = true;
+};
+
 const toSqlDate = (input) => {
     if (!input) return null;
     const d = new Date(input);
@@ -12,10 +27,11 @@ const toSqlDate = (input) => {
 
 exports.getAllLeads = async (req, res) => {
     try {
+        await ensureLeadColumns();
         const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
         let sql = `
             SELECT 
-                l.id, l.name, l.phone, l.phone2, l.phone3, l.phone4, l.email, l.service, l.country, 
+                l.id, l.name, l.phone, l.phone2, l.phone3, l.phone4, l.email, l.service, l.lead_type AS leadType, l.lead_category AS leadCategory, l.country, 
                 l.lead_source AS leadSource, l.lead_status AS leadStatus,
                 l.company_name AS companyName, l.location, l.assigned_to_id AS assignedToId, 
                 l.last_activity_at AS lastActivityAt, l.created_at AS createdAt,
@@ -60,6 +76,8 @@ exports.createLead = async (req, res) => {
         p.phone4 ?? null,
         p.email ?? null,
         p.service ?? null,
+        p.leadType ?? null,
+        p.leadCategory ?? null,
         p.country ?? null,
         p.leadSource ?? null,
         p.leadStatus ?? 'New Lead',
@@ -70,9 +88,10 @@ exports.createLead = async (req, res) => {
     ];
 
     try {
+        await ensureLeadColumns();
         const [result] = await db.execute(
-            `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, country, lead_source, lead_status, company_name, location, assigned_to_id, created_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
+            `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, lead_type, lead_category, country, lead_source, lead_status, company_name, location, assigned_to_id, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
             fields
         );
 
@@ -108,6 +127,7 @@ exports.updateLead = async (req, res) => {
     const p = req.body; 
     
     try {
+        await ensureLeadColumns();
         const [[oldLead]] = await db.execute('SELECT assigned_to_id FROM leads WHERE id = ?', [id]);
         if (!oldLead) return res.status(404).json({ error: 'Lead not found' });
 
@@ -125,6 +145,8 @@ exports.updateLead = async (req, res) => {
             p.phone4 ?? null,
             p.email ?? null,
             p.service ?? null,
+            p.leadType ?? null,
+            p.leadCategory ?? null,
             p.country ?? null,
             p.leadSource ?? null,
             p.leadStatus ?? 'New Lead',
@@ -139,7 +161,7 @@ exports.updateLead = async (req, res) => {
 
         await db.execute(
             `UPDATE leads SET 
-                name=?, phone=?, phone2=?, phone3=?, phone4=?, email=?, service=?, country=?, 
+                name=?, phone=?, phone2=?, phone3=?, phone4=?, email=?, service=?, lead_type=?, lead_category=?, country=?, 
                 lead_source=?, lead_status=?, company_name=?, location=?, 
                 assigned_to_id=?, created_at=COALESCE(?, created_at), last_activity_at=CURRENT_TIMESTAMP 
              WHERE id=?`,

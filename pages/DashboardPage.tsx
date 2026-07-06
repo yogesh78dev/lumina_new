@@ -90,10 +90,9 @@ const DashboardPage: React.FC = () => {
     if (leadStatusChartRef.current) {
         const leadCountsByStatus = leadStatuses.map(status => ({
             name: status.name,
-            count: filteredData.filteredLeads.filter(lead => lead.leadStatus === status.name).length
+            count: filteredData.filteredLeads.filter(lead => lead.leadStatus === status.name).length,
+            color: status.color || '#2563eb'
         }));
-        
-        const statusColors = ['#c4161c', '#f59e0b', '#22c55e', '#6b7280', '#8b5cf6', '#3b82f6'];
 
         const ctx = leadStatusChartRef.current.getContext('2d');
         if (ctx) {
@@ -104,7 +103,7 @@ const DashboardPage: React.FC = () => {
                     datasets: [{
                         label: 'Leads',
                         data: leadCountsByStatus.map(s => s.count),
-                        backgroundColor: statusColors, 
+                        backgroundColor: leadCountsByStatus.map(s => s.color), 
                         borderRadius: 4,
                         barThickness: 30,
                     }]

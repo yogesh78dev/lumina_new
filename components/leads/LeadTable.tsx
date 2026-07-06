@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { useSwal } from '../../hooks/useSwal';
 import { capitalizeName, formatDateDDMMYYYY } from '../../utils/formatters';
 import Tooltip from '../common/Tooltip';
+import { getStatusVisual } from '../../utils/statusColors';
 
 interface LeadTableProps {
   leads: Lead[];
@@ -206,17 +207,32 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
         
         case 'leadStatus': 
             const statusStyle = getSelectClass('status');
+            const currentStatus = leadStatuses.find(status => status.name === lead.leadStatus);
+            const statusVisual = getStatusVisual(currentStatus?.color);
             return (
             <td className="p-3 min-w-[140px]">
-                <select 
-                    value={lead.leadStatus} 
-                    disabled={!canUpdateLeads} 
-                    onChange={(e) => handleInlineUpdate(lead, 'leadStatus', e.target.value)} 
-                    className={statusStyle.className}
-                    style={statusStyle.style}
+                <div
+                    className="flex items-center w-full min-w-0 rounded-md border px-2 transition-colors"
+                    style={{ borderColor: statusVisual.borderColor, backgroundColor: statusVisual.backgroundColor }}
                 >
-                    {leadStatuses.map(status => <option key={status.id} value={status.name}>{status.name}</option>)}
-                </select>
+                    <span
+                        className="w-2 h-2 rounded-full flex-shrink-0 mr-2"
+                        style={{ backgroundColor: statusVisual.color, boxShadow: `0 0 0 3px ${statusVisual.strongBackgroundColor}` }}
+                    ></span>
+                    <select 
+                        value={lead.leadStatus} 
+                        disabled={!canUpdateLeads} 
+                        onChange={(e) => handleInlineUpdate(lead, 'leadStatus', e.target.value)} 
+                        className="min-w-0 w-full bg-transparent py-1.5 pr-5 text-xs font-bold border-0 outline-none focus:ring-0 disabled:cursor-not-allowed appearance-none"
+                        style={{
+                            ...statusStyle.style,
+                            color: statusVisual.color,
+                            backgroundColor: 'transparent'
+                        }}
+                    >
+                        {leadStatuses.map(status => <option key={status.id} value={status.name}>{status.name}</option>)}
+                    </select>
+                </div>
             </td>
         );
 

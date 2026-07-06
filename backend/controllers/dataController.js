@@ -129,12 +129,51 @@ exports.importLeads = async (req, res) => {
 
         const [portalUsers] = await connection.execute('SELECT id, name FROM users WHERE status = "Active"');
         const [portalSources] = await connection.execute('SELECT name FROM lead_sources');
+        const [portalStatuses] = await connection.execute('SELECT name FROM lead_statuses');
+        const [portalTypes] = await connection.execute('SELECT name FROM service_types');
+        const [leadTypeColumns] = await connection.execute('SHOW COLUMNS FROM leads LIKE "lead_type"');
+        if (leadTypeColumns.length === 0) {
+            await connection.execute('ALTER TABLE leads ADD COLUMN lead_type VARCHAR(100) NULL AFTER service');
+        }
+        const [categoryColumns] = await connection.execute('SHOW COLUMNS FROM leads LIKE "lead_category"');
+        if (categoryColumns.length === 0) {
+            await connection.execute('ALTER TABLE leads ADD COLUMN lead_category VARCHAR(100) NULL AFTER service');
+        }
+        const [categoryTables] = await connection.execute('SHOW TABLES LIKE "lead_categories"');
+        if (categoryTables.length === 0) {
+            await connection.execute(`
+                CREATE TABLE lead_categories (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL UNIQUE
+                )
+            `);
+        }
+        const defaultCategories = ['Domestic Package', 'International Package', 'Study Visa', 'Business Trip', 'Package', 'Passport'];
+        for (const name of defaultCategories) {
+            await connection.execute(
+                'INSERT INTO lead_categories (name) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM lead_categories WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)))',
+                [name, name]
+            );
+        }
+        const [portalCategories] = await connection.execute('SELECT name FROM lead_categories');
         const userByName = new Map(portalUsers.map(u => [normalize(u.name), u]));
         const validSourceNames = new Set(portalSources.map(s => normalize(s.name)));
+        const validLeadTypeNames = new Set(portalTypes.map(t => normalize(t.name)));
+        const categoryByName = new Map(portalCategories.map(c => [normalize(c.name), c.name]));
+        const statusByName = new Map(portalStatuses.map(s => [normalize(s.name), s.name]));
 
         // Validate defaults as fallback values
         if (defaults?.leadSource && !validSourceNames.has(normalize(defaults.leadSource))) {
             return res.status(400).json({ error: `Invalid default Lead Source: "${defaults.leadSource}". It must match portal Lead Source.` });
+        }
+        if (defaults?.leadStatus && !statusByName.has(normalize(defaults.leadStatus))) {
+            return res.status(400).json({ error: `Invalid default Lead Status: "${defaults.leadStatus}". It must match portal Lead Status.` });
+        }
+        if (defaults?.leadCategory && !categoryByName.has(normalize(defaults.leadCategory))) {
+            return res.status(400).json({ error: `Invalid default Lead Category: "${defaults.leadCategory}". It must match portal Lead Category.` });
+        }
+        if (defaults?.leadType && !validLeadTypeNames.has(normalize(defaults.leadType))) {
+            return res.status(400).json({ error: `Invalid default Lead Type: "${defaults.leadType}". It must match portal Lead Type.` });
         }
 
         const rowsToInsert = [];
@@ -152,6 +191,16 @@ exports.importLeads = async (req, res) => {
             const rowAssignTo = String(
                 lead['assign to agent'] ?? lead.assigntoagent ?? lead.assign_to_agent ?? lead['assigned to agent'] ?? ''
             ).trim();
+            const rowLeadCategory = String(
+                lead['lead category'] ?? lead.leadcategory ?? lead.lead_category ?? lead.category ?? ''
+            ).trim();
+            const rowLeadStatus = String(
+                lead['lead status'] ?? lead.leadstatus ?? lead.lead_status ?? lead.status ?? ''
+            ).trim();
+            const rowLeadType = String(
+                lead['lead type'] ?? lead.leadtype ?? lead.lead_type ?? ''
+            ).trim();
+            const rowService = String(lead.service ?? '').trim();
             const rowRemark = String(
                 lead['notes/remark'] ??
                 lead['notes'] ??
@@ -220,6 +269,39 @@ exports.importLeads = async (req, res) => {
                 }
             }
 
+            let finalLeadCategory = defaults?.leadCategory
+                ? categoryByName.get(normalize(defaults.leadCategory)) || defaults.leadCategory
+                : null;
+            if (rowLeadCategory) {
+                const matchedCategory = categoryByName.get(normalize(rowLeadCategory));
+                if (!matchedCategory) {
+                    rowErrors.push(`Invalid Lead Category "${rowLeadCategory}" (must match portal Lead Category)`);
+                } else {
+                    finalLeadCategory = matchedCategory;
+                }
+            }
+
+            let finalLeadStatus = defaults?.leadStatus
+                ? statusByName.get(normalize(defaults.leadStatus)) || defaults.leadStatus
+                : (statusByName.get(normalize('New Lead')) || 'New Lead');
+            if (rowLeadStatus) {
+                const matchedStatus = statusByName.get(normalize(rowLeadStatus));
+                if (!matchedStatus) {
+                    rowErrors.push(`Invalid Lead Status "${rowLeadStatus}" (must match portal Lead Status)`);
+                } else {
+                    finalLeadStatus = matchedStatus;
+                }
+            }
+
+            let finalLeadType = defaults?.leadType || null;
+            if (rowLeadType) {
+                if (!validLeadTypeNames.has(normalize(rowLeadType))) {
+                    rowErrors.push(`Invalid Lead Type "${rowLeadType}" (must match portal Lead Type)`);
+                } else {
+                    finalLeadType = rowLeadType;
+                }
+            }
+
             // Handle date from multiple possible header variants
             const createdAtInput = (
                 lead.createdAt ||
@@ -250,10 +332,12 @@ exports.importLeads = async (req, res) => {
                 phone3,
                 phone4,
                 email: lead.email || null,
-                service: lead.service || defaults.service || null,
+                service: rowService || defaults.service || null,
+                leadType: finalLeadType,
+                leadCategory: finalLeadCategory,
                 country: rawCountry || defaults.country || 'India',
                 leadSource: finalLeadSource,
-                leadStatus: defaults.leadStatus || 'New Lead',
+                leadStatus: finalLeadStatus,
                 assignedToId,
                 createdAt,
                 rowRemark
@@ -271,8 +355,8 @@ exports.importLeads = async (req, res) => {
 
         for (const row of rowsToInsert) {
             const [result] = await connection.execute(
-                `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, country, lead_source, lead_status, assigned_to_id, created_at, last_activity_at) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))`,
+                `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, lead_type, lead_category, country, lead_source, lead_status, assigned_to_id, created_at, last_activity_at) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))`,
                 [
                     row.name,
                     row.phone,
@@ -281,6 +365,8 @@ exports.importLeads = async (req, res) => {
                     row.phone4,
                     row.email,
                     row.service,
+                    row.leadType,
+                    row.leadCategory,
                     row.country,
                     row.leadSource,
                     row.leadStatus,

@@ -9,6 +9,8 @@ export interface LeadSource {
 export interface LeadStatus {
   id: string | number;
   name: string;
+  color?: string;
+  progress?: number;
 }
 
 export interface ApplicationStatusItem {
@@ -32,6 +34,11 @@ export interface RemarkStatus {
 }
 
 export interface ServiceType {
+  id: string | number;
+  name: string;
+}
+
+export interface LeadCategory {
   id: string | number;
   name: string;
 }
@@ -91,6 +98,8 @@ export interface Lead {
   phone4?: string;
   email?: string;
   service?: string;
+  leadType?: string;
+  leadCategory?: string;
   country?: string;
   leadSource: string;
   leadStatus: string; 

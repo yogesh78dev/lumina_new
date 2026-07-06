@@ -2,6 +2,7 @@
 const db = require('../db');
 
 let sidebarOrderColumnReady = false;
+let leadMasterSchemaReady = false;
 
 const ensureSidebarOrderColumn = async () => {
     if (sidebarOrderColumnReady) return;
@@ -23,6 +24,69 @@ const parseSidebarOrder = (value) => {
     }
 };
 
+const ensureLeadMasterSchema = async () => {
+    if (leadMasterSchemaReady) return;
+
+    const [leadStatusColorColumns] = await db.execute('SHOW COLUMNS FROM lead_statuses LIKE "color"');
+    const addedStatusColorColumn = leadStatusColorColumns.length === 0;
+    if (leadStatusColorColumns.length === 0) {
+        await db.execute('ALTER TABLE lead_statuses ADD COLUMN color VARCHAR(20) NULL DEFAULT "#2563eb"');
+    }
+
+    const [leadStatusProgressColumns] = await db.execute('SHOW COLUMNS FROM lead_statuses LIKE "progress"');
+    const addedStatusProgressColumn = leadStatusProgressColumns.length === 0;
+    if (leadStatusProgressColumns.length === 0) {
+        await db.execute('ALTER TABLE lead_statuses ADD COLUMN progress INT NULL DEFAULT 0');
+    }
+
+    const [leadCategoryTables] = await db.execute('SHOW TABLES LIKE "lead_categories"');
+    if (leadCategoryTables.length === 0) {
+        await db.execute(`
+            CREATE TABLE lead_categories (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE
+            )
+        `);
+    }
+
+    const [leadTypeColumns] = await db.execute('SHOW COLUMNS FROM leads LIKE "lead_type"');
+    if (leadTypeColumns.length === 0) {
+        await db.execute('ALTER TABLE leads ADD COLUMN lead_type VARCHAR(100) NULL AFTER service');
+    }
+
+    const [leadCategoryColumns] = await db.execute('SHOW COLUMNS FROM leads LIKE "lead_category"');
+    if (leadCategoryColumns.length === 0) {
+        await db.execute('ALTER TABLE leads ADD COLUMN lead_category VARCHAR(100) NULL AFTER service');
+    }
+
+    const defaultCategories = ['Domestic Package', 'International Package', 'Study Visa', 'Business Trip', 'Package', 'Passport'];
+    for (const name of defaultCategories) {
+        await db.execute(
+            'INSERT INTO lead_categories (name) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM lead_categories WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)))',
+            [name, name]
+        );
+    }
+
+    const statusDefaults = [
+        { name: 'New Lead', color: '#2563eb', progress: 10 },
+        { name: 'Follow-up', color: '#f59e0b', progress: 50 },
+        { name: 'Won', color: '#16a34a', progress: 100 },
+        { name: 'Lost', color: '#dc2626', progress: 0 }
+    ];
+
+    for (const status of statusDefaults) {
+        await db.execute(
+            `UPDATE lead_statuses
+             SET color = CASE WHEN ? OR color IS NULL OR color = "" THEN ? ELSE color END,
+                 progress = CASE WHEN ? OR progress IS NULL THEN ? ELSE progress END
+             WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))`,
+            [addedStatusColorColumn, status.color, addedStatusProgressColumn, status.progress, status.name]
+        );
+    }
+
+    leadMasterSchemaReady = true;
+};
+
 /**
  * Application Handshake: Fetches all core configurations, master data, 
  * users, and roles to initialize the frontend global context state.
@@ -30,6 +94,7 @@ const parseSidebarOrder = (value) => {
 exports.getHandshake = async (req, res) => {
     try {
         await ensureSidebarOrderColumn();
+        await ensureLeadMasterSchema();
         const queries = [
             'SELECT * FROM lead_sources',
             'SELECT * FROM lead_statuses',
@@ -44,6 +109,7 @@ exports.getHandshake = async (req, res) => {
             'SELECT id, name, username, email, role_id as roleId, role_name as role, status, image_url as imageUrl FROM users',
             'SELECT * FROM roles',
             'SELECT * FROM vendors',
+            'SELECT * FROM lead_categories ORDER BY name ASC',
             'SELECT id, company_name as companyName, address, city, state, country, pincode, from_name as fromName, from_email as fromEmail, reply_name as replyName, reply_email as replyEmail, help_email as helpEmail, info_email as infoEmail, phone, secondary_phone as secondaryPhone, instagram_link as instagramLink, facebook_link as facebookLink, twitter_link as twitterLink, linkedin_link as linkedinLink, website, gst_no as gstNo, timezone, date_format as dateFormat, currency, logo_url as logoUrl, favicon_url as faviconUrl, sidebar_order as sidebarOrder FROM company_details WHERE id = 1',
             'SELECT id, api_name as apiName, api_url as apiUrl, api_key as apiKey FROM email_api_credentials WHERE id = 1',
             'SELECT id, api_name as apiName, from_number as fromNumber, sid, token FROM mobile_api_credentials WHERE id = 1',
@@ -67,7 +133,7 @@ exports.getHandshake = async (req, res) => {
             return { ...role, permissions: perms };
         });
 
-        const workflows = results[19][0].map(rule => ({
+        const workflows = results[20][0].map(rule => ({
             ...rule,
             conditions: typeof rule.conditions === 'string' ? JSON.parse(rule.conditions) : rule.conditions,
             actionDetails: typeof rule.action_details === 'string' ? JSON.parse(rule.action_details) : rule.action_details,
@@ -76,12 +142,12 @@ exports.getHandshake = async (req, res) => {
             triggerEvent: rule.trigger_event
         }));
 
-        const announcements = results[20][0].map(ann => ({
+        const announcements = results[21][0].map(ann => ({
             ...ann,
             recipients: typeof ann.recipients === 'string' ? JSON.parse(ann.recipients) : ann.recipients
         }));
 
-        const companyDetails = results[13][0][0] || {};
+        const companyDetails = results[14][0][0] || {};
         companyDetails.sidebarOrder = parseSidebarOrder(companyDetails.sidebarOrder);
 
         res.json({
@@ -98,12 +164,13 @@ exports.getHandshake = async (req, res) => {
             users: results[10][0],
             roles: roles,
             vendors: results[12][0],
+            leadCategories: results[13][0],
             companyDetails,
-            emailApiCredentials: results[14][0][0] || {},
-            mobileApiCredentials: results[15][0][0] || {},
-            paymentGatewaySettings: results[16][0][0] || {},
-            permissionCategories: results[17][0],
-            permissionSections: results[18][0],
+            emailApiCredentials: results[15][0][0] || {},
+            mobileApiCredentials: results[16][0][0] || {},
+            paymentGatewaySettings: results[17][0][0] || {},
+            permissionCategories: results[18][0],
+            permissionSections: results[19][0],
             workflowRules: workflows,
             announcements: announcements
         });

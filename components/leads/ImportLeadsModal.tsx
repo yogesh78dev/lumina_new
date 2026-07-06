@@ -11,7 +11,7 @@ interface ImportLeadsModalProps {
 }
 
 const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) => {
-  const { users, leadStatuses, leadSources, importLeads } = useCrm();
+  const { users, leadStatuses, leadSources, leadCategories, serviceTypes, importLeads } = useCrm();
   const { fireToast } = useSwal();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -24,6 +24,9 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
     assignedToId: String(users[0]?.id || ''),
     leadStatus: leadStatuses[0]?.name || '',
     leadSource: leadSources[0]?.name || '',
+    leadCategory: leadCategories[0]?.name || '',
+    leadType: serviceTypes[0]?.name || '',
+    service: '',
     note: ''
   });
 
@@ -68,6 +71,17 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
   }, [importError]);
 
   useEffect(() => {
+    setDefaults(prev => ({
+      ...prev,
+      assignedToId: prev.assignedToId || String(users[0]?.id || ''),
+      leadStatus: prev.leadStatus || leadStatuses[0]?.name || '',
+      leadSource: prev.leadSource || leadSources[0]?.name || '',
+      leadCategory: prev.leadCategory || leadCategories[0]?.name || '',
+      leadType: prev.leadType || serviceTypes[0]?.name || ''
+    }));
+  }, [users, leadStatuses, leadSources, leadCategories, serviceTypes]);
+
+  useEffect(() => {
     if (!isOpen) {
       setFile(null);
       setImportError('');
@@ -89,10 +103,10 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
       }
       return stringVal;
     };
-    const headers = ['Name', 'Phone', 'Email', 'Service', 'Country', 'Date', 'Assign To Agent', 'Lead Source', 'Notes/Remark'];
-    const sampleRow1 = ['Jane Smith', toExcelText('919500391807|971528514124'), 'jane.smith@example.com', 'UK Visitor Visa', 'India', toExcelText('15-01-2026'), 'Aarav Patel', 'Google', 'Interested client. Call tomorrow.'];
-    const sampleRow2 = ['John Doe', toExcelText('919500391807,971528514124'), 'john.doe@example.com', 'Tourist Visa', 'India', toExcelText('16-01-2026'), 'Riya Shah', 'Website Inquiry', 'Asked for pricing details.'];
-    const sampleRow3 = ['Aman Verma', toExcelText('919500391807'), 'aman.verma@example.com', 'Work Permit', 'United Arab Emirates', toExcelText('17-01-2026'), 'Kabir Mehta', 'IVR', 'Follow up next week.'];
+    const headers = ['Name', 'Phone', 'Email', 'Service', 'Lead Type', 'Lead Category', 'Country', 'Date', 'Assign To Agent', 'Lead Source', 'Notes/Remark'];
+    const sampleRow1 = ['Jane Smith', toExcelText('919500391807|971528514124'), 'jane.smith@example.com', 'UK Visitor Visa Assistance', 'Hot', 'International Package', 'India', toExcelText('15-01-2026'), 'Aarav Patel', 'Google', 'Interested client. Call tomorrow.'];
+    const sampleRow2 = ['John Doe', toExcelText('919500391807,971528514124'), 'john.doe@example.com', 'Goa family trip', 'Cold', 'Domestic Package', 'India', toExcelText('16-01-2026'), 'Riya Shah', 'Website Inquiry', 'Asked for pricing details.'];
+    const sampleRow3 = ['Aman Verma', toExcelText('919500391807'), 'aman.verma@example.com', 'Canada study consultation', 'Hot', 'Study Visa', 'United Arab Emirates', toExcelText('17-01-2026'), 'Kabir Mehta', 'IVR', 'Follow up next week.'];
     const csvContent = [
       headers.map(toCsvCell).join(','),
       sampleRow1.map(toCsvCell).join(','),
@@ -192,7 +206,7 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
               <h4 className="text-base font-bold text-gray-700">
                   {file ? file.name : 'Click or drag CSV/XLSX/XLS file here'}
               </h4>
-              <p className="text-xs text-gray-500 mt-2">Required: Name, Phone. Multiple phones allowed in Phone using `|` or `,`. Date format: DD-MM-YYYY (e.g. 01-06-2026). Country must be a valid country name (Hong Kong and Unknown allowed). Assign To Agent and Lead Source must match portal values. Notes/Remark is optional.</p>
+              <p className="text-xs text-gray-500 mt-2">Required: Name, Phone. Multiple phones allowed in Phone using `|` or `,`. Date format: DD-MM-YYYY (e.g. 01-06-2026). Lead Type, Lead Category, Assign To Agent and Lead Source must match portal values when provided. Service and Notes/Remark are optional.</p>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv,.xlsx,.xls" className="hidden"/>
               
               {file && (
@@ -240,6 +254,24 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
                         <label className="block text-xs font-bold text-gray-600 uppercase mb-2">Lead Status</label>
                         <select name="leadStatus" value={defaults.leadStatus} onChange={handleDefaultsChange} className="input-field-custom">
                             {leadStatuses.map(status => <option key={status.id} value={status.name}>{status.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 uppercase mb-2">Service</label>
+                        <input name="service" value={defaults.service} onChange={handleDefaultsChange} className="input-field-custom" placeholder="Optional default service" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 uppercase mb-2">Lead Category</label>
+                        <select name="leadCategory" value={defaults.leadCategory} onChange={handleDefaultsChange} className="input-field-custom">
+                            <option value="">No default</option>
+                            {leadCategories.map(category => <option key={category.id} value={category.name}>{category.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-600 uppercase mb-2">Lead Type</label>
+                        <select name="leadType" value={defaults.leadType} onChange={handleDefaultsChange} className="input-field-custom">
+                            <option value="">No default</option>
+                            {serviceTypes.map(type => <option key={type.id} value={type.name}>{type.name}</option>)}
                         </select>
                     </div>
                     <div className="md:col-span-2">

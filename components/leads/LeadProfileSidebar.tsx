@@ -69,7 +69,9 @@ const LeadProfileSidebar: React.FC<LeadProfileSidebarProps> = ({ lead }) => {
                     </h3>
                 </div>
                 <div className="p-4">
-                    <DetailRow icon="ri-briefcase-line" label="Service Interested" value={lead.service} />
+                    <DetailRow icon="ri-price-tag-3-line" label="Lead Type" value={lead.leadType} />
+                    <DetailRow icon="ri-briefcase-line" label="Service" value={lead.service} />
+                    <DetailRow icon="ri-folder-2-line" label="Lead Category" value={lead.leadCategory} />
                     <DetailRow icon="ri-links-line" label="Source" value={lead.leadSource} />
                     
                     {/* Application Status and Passport Status are intentionally hidden for now. */}

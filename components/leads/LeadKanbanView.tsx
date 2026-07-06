@@ -48,7 +48,7 @@ const LeadKanbanView: React.FC<LeadKanbanViewProps> = ({ leads }) => {
                 {leadsByStatus.map(statusGroup => (
                     <KanbanColumn
                         key={statusGroup.id}
-                        status={statusGroup.name}
+                        status={statusGroup}
                         leads={statusGroup.leads}
                         onDrop={handleDrop}
                         onCardClick={handleCardClick}

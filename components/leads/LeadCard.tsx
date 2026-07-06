@@ -5,6 +5,7 @@ import { useCrm } from '../../hooks/useCrm';
 import { generateAvatar } from '../../utils/avatar';
 import { formatDateDDMMYYYY } from '../../utils/formatters';
 import Tooltip from '../common/Tooltip';
+import { getStatusVisual } from '../../utils/statusColors';
 
 interface LeadCardProps {
   lead: Lead;
@@ -22,8 +23,10 @@ const getSourceColor = (source: string) => {
 }
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, onClick }) => {
-  const { users } = useCrm();
+  const { users, leadStatuses } = useCrm();
   const assignedUser = users.find(u => String(u.id) === String(lead.assignedToId));
+  const statusMeta = leadStatuses.find(status => status.name === lead.leadStatus);
+  const statusVisual = getStatusVisual(statusMeta?.color);
 
   const notesCount = lead.notesCount || 0;
   const remindersCount = lead.remindersCount || 0;
@@ -54,10 +57,10 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onClick }) => {
       onClick={onClick}
       className={`
         bg-white rounded-lg p-3 cursor-grab active:cursor-grabbing 
-        border-l-[3px] border-y border-r border-gray-200 
+        border-l-[4px] border-y border-r border-gray-200 
         shadow-sm hover:shadow-md transition-all duration-200 group/card relative
-        ${isRotting ? 'border-l-red-500' : 'border-l-primary'}
       `}
+      style={{ borderLeftColor: isRotting ? '#ef4444' : statusVisual.color }}
     >
       <div className="flex justify-between items-start mb-2">
           <div className="flex-1 min-w-0 pr-2">
@@ -101,6 +104,20 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onClick }) => {
                 <span className="truncate">{lead.phone}</span>
             </div>
          )}
+      </div>
+
+      <div className="mb-2">
+        <span
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-black rounded-full border max-w-full"
+            style={{
+                color: statusVisual.color,
+                borderColor: statusVisual.borderColor,
+                backgroundColor: statusVisual.backgroundColor
+            }}
+        >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: statusVisual.color }}></span>
+            <span className="truncate">{lead.leadStatus}</span>
+        </span>
       </div>
 
       <div className="flex justify-between items-center pt-2 border-t border-gray-50">

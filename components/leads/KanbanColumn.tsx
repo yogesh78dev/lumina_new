@@ -1,38 +1,19 @@
 
 import React, { useState } from 'react';
-import { Lead } from '../../types';
+import { Lead, LeadStatus } from '../../types';
 import LeadCard from './LeadCard';
+import { getStatusVisual } from '../../utils/statusColors';
 
 interface KanbanColumnProps {
-    status: string;
+    status: LeadStatus;
     leads: Lead[];
     onDrop: (leadId: string, newStatus: string) => void;
     onCardClick: (lead: Lead) => void;
 }
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'New Lead': return 'bg-blue-500';
-    case 'Follow-up': return 'bg-amber-500';
-    case 'Won': return 'bg-green-500';
-    case 'Lost': return 'bg-gray-500';
-    default: return 'bg-gray-400';
-  }
-};
-
-const getStatusBg = (status: string) => {
-    switch (status) {
-      case 'New Lead': return 'bg-blue-50/50 border-blue-100';
-      case 'Follow-up': return 'bg-amber-50/50 border-amber-100';
-      case 'Won': return 'bg-green-50/50 border-green-100';
-      case 'Lost': return 'bg-gray-50/50 border-gray-100';
-      default: return 'bg-gray-50 border-gray-200';
-    }
-};
-
-
 const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, leads, onDrop, onCardClick }) => {
     const [isOver, setIsOver] = useState(false);
+    const statusVisual = getStatusVisual(status.color || '#64748b');
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -50,13 +31,14 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, leads, onDrop, onCa
         setIsOver(false);
         const leadId = e.dataTransfer.getData('leadId');
         if (leadId) {
-            onDrop(leadId, status);
+            onDrop(leadId, status.name);
         }
     };
 
     return (
         <div 
-            className={`rounded-xl w-[320px] flex-shrink-0 flex flex-col h-full max-h-full border transition-colors ${getStatusBg(status)} ${isOver ? 'ring-2 ring-primary ring-opacity-50' : ''}`}
+            className={`rounded-xl w-[320px] flex-shrink-0 flex flex-col h-full max-h-full border transition-colors ${isOver ? 'ring-2 ring-primary ring-opacity-50' : ''}`}
+            style={{ borderColor: statusVisual.borderColor, backgroundColor: statusVisual.backgroundColor }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -65,10 +47,10 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, leads, onDrop, onCa
             <div className="p-3 pb-2 flex-shrink-0 sticky top-0 z-10 rounded-t-xl backdrop-blur-sm bg-opacity-90">
                 <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                        <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(status)} shadow-sm`}></div>
-                        <h3 className="font-bold text-gray-700 text-sm uppercase tracking-wide">{status}</h3>
+                        <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: statusVisual.color, boxShadow: `0 0 0 3px ${statusVisual.strongBackgroundColor}` }}></div>
+                        <h3 className="font-bold text-sm uppercase tracking-wide" style={{ color: statusVisual.color }}>{status.name}</h3>
                     </div>
-                    <span className="text-xs font-bold text-gray-500 bg-white px-2 py-0.5 rounded-md border border-gray-200 shadow-sm">
+                    <span className="text-xs font-bold bg-white px-2 py-0.5 rounded-md border shadow-sm" style={{ color: statusVisual.color, borderColor: statusVisual.borderColor }}>
                         {leads.length}
                     </span>
                 </div>

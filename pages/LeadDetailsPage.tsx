@@ -15,6 +15,7 @@ import { generateAvatar } from '../utils/avatar';
 import { capitalizeName } from '../utils/formatters';
 import { usePermissions } from '../hooks/usePermissions';
 import Tooltip from '../components/common/Tooltip';
+import { getStatusVisual } from '../utils/statusColors';
 
 const TABS = [
     { id: 'activity', name: 'Activity & Notes', icon: 'ri-time-line' },
@@ -25,6 +26,10 @@ const TABS = [
 
 // Compact Circular Stepper
 const StatusStepper = ({ currentStatus }: { currentStatus: string }) => {
+    const { leadStatuses } = useCrm();
+    const currentStatusMeta = leadStatuses.find(status => status.name === currentStatus);
+    const progress = Number(currentStatusMeta?.progress ?? 0);
+    const currentVisual = getStatusVisual(currentStatusMeta?.color);
     const steps = ['New Lead', 'Follow-up', 'Won'];
     const isLost = currentStatus === 'Lost';
     
@@ -35,8 +40,13 @@ const StatusStepper = ({ currentStatus }: { currentStatus: string }) => {
     }
 
     return (
-        <div className="flex items-center mx-4">
+        <div className="flex flex-col items-center gap-2 mx-4 min-w-[220px]">
+            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(0, Math.min(100, progress))}%`, backgroundColor: currentVisual.color }}></div>
+            </div>
+            <div className="flex items-center">
             {steps.map((step, index) => {
+                const stepVisual = getStatusVisual(leadStatuses.find(status => status.name === step)?.color);
                 const isCompleted = index < activeIndex;
                 const isActive = index === activeIndex;
                 const isLast = index === steps.length - 1;
@@ -45,44 +55,50 @@ const StatusStepper = ({ currentStatus }: { currentStatus: string }) => {
                 let icon = <span className="text-[10px] font-bold">{index + 1}</span>;
                 let labelClass = "text-gray-400 font-medium";
                 let lineColor = "bg-gray-200";
+                let circleStyle: React.CSSProperties = {};
+                let labelStyle: React.CSSProperties = {};
+                let lineStyle: React.CSSProperties = {};
 
                 if (isCompleted) {
-                    circleClass = "bg-green-100 text-green-600 border-2 border-green-200";
+                    circleClass = "border-2";
                     icon = <i className="ri-check-line text-sm"></i>;
-                    labelClass = "text-green-600 font-semibold";
-                    lineColor = "bg-green-400";
+                    labelClass = "font-semibold";
+                    circleStyle = { color: stepVisual.color, borderColor: stepVisual.borderColor, backgroundColor: stepVisual.strongBackgroundColor };
+                    labelStyle = { color: stepVisual.color };
+                    lineStyle = { backgroundColor: stepVisual.color };
                 } else if (isActive) {
                     if (isLost) {
-                        circleClass = "bg-red-100 text-red-600 border-2 border-red-200";
+                        circleClass = "border-2";
                         icon = <i className="ri-close-line text-sm"></i>;
-                        labelClass = "text-red-600 font-bold";
-                    } else if (step === 'Won') {
-                        circleClass = "bg-green-600 text-white border-2 border-green-600 shadow-sm";
-                        icon = <i className="ri-trophy-line text-sm"></i>;
-                        labelClass = "text-green-700 font-bold";
+                        labelClass = "font-bold";
+                        circleStyle = { color: currentVisual.color, borderColor: currentVisual.borderColor, backgroundColor: currentVisual.strongBackgroundColor };
+                        labelStyle = { color: currentVisual.color };
                     } else {
-                        circleClass = "bg-blue-600 text-white border-2 border-blue-600 shadow-sm"; 
-                        icon = <span className="text-[10px] font-bold">{index + 1}</span>;
-                        labelClass = "text-blue-700 font-bold";
+                        circleClass = "text-white border-2 shadow-sm"; 
+                        icon = step === 'Won' ? <i className="ri-trophy-line text-sm"></i> : <span className="text-[10px] font-bold">{index + 1}</span>;
+                        labelClass = "font-bold";
+                        circleStyle = { borderColor: currentVisual.color, backgroundColor: currentVisual.color, boxShadow: `0 0 0 4px ${currentVisual.shadowColor}` };
+                        labelStyle = { color: currentVisual.color };
                     }
                 }
 
                 return (
                     <div key={step} className="flex items-center">
                         <div className="flex flex-col items-center relative group cursor-default">
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${circleClass} z-10`}>
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${circleClass} z-10`} style={circleStyle}>
                                 {icon}
                             </div>
-                            <span className={`absolute top-full mt-1 text-[10px] whitespace-nowrap ${labelClass}`}>
+                            <span className={`absolute top-full mt-1 text-[10px] whitespace-nowrap ${labelClass}`} style={labelStyle}>
                                 {step}
                             </span>
                         </div>
                         {!isLast && (
-                            <div className={`w-8 sm:w-12 h-0.5 mx-1 rounded ${lineColor}`}></div>
+                            <div className={`w-8 sm:w-12 h-0.5 mx-1 rounded ${lineColor}`} style={lineStyle}></div>
                         )}
                     </div>
                 );
             })}
+            </div>
         </div>
     );
 };
@@ -90,7 +106,7 @@ const StatusStepper = ({ currentStatus }: { currentStatus: string }) => {
 const LeadDetailsPage: React.FC = () => {
     const { leadId } = useParams<{ leadId: string }>();
     const navigate = useNavigate();
-    const { leads, convertLeadToCustomer, openLeadModal, deleteLead, users, fetchLeadActivities, initiateCall, activeCall } = useCrm();
+    const { leads, leadStatuses, convertLeadToCustomer, openLeadModal, deleteLead, users, fetchLeadActivities, initiateCall, activeCall } = useCrm();
     const { confirmDelete, fireToast } = useSwal();
     const permissions = usePermissions();
 
@@ -102,6 +118,15 @@ const LeadDetailsPage: React.FC = () => {
     const assignedUser = useMemo(() => 
         users.find(u => String(u.id) === String(lead?.assignedToId)), 
     [users, lead]);
+
+    const leadStatusMeta = useMemo(
+        () => leadStatuses.find(status => status.name === lead?.leadStatus),
+        [leadStatuses, lead?.leadStatus]
+    );
+    const leadStatusVisual = useMemo(
+        () => getStatusVisual(leadStatusMeta?.color),
+        [leadStatusMeta?.color]
+    );
 
     // Fetch activities on mount or when lead changes
     useEffect(() => {
@@ -201,11 +226,15 @@ const LeadDetailsPage: React.FC = () => {
                             <div className="flex-grow min-w-0">
                                 <div className="flex items-center gap-3 mb-1">
                                     <h1 className="text-xl font-bold text-gray-900 truncate">{lead.name}</h1>
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${
-                                        lead.leadStatus === 'Won' ? 'bg-green-50 text-green-700 border-green-200' :
-                                        lead.leadStatus === 'Lost' ? 'bg-red-50 text-red-700 border-red-200' :
-                                        'bg-blue-50 text-blue-700 border-blue-200'
-                                    }`}>
+                                    <span
+                                        className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border"
+                                        style={{
+                                            color: leadStatusVisual.color,
+                                            borderColor: leadStatusVisual.borderColor,
+                                            backgroundColor: leadStatusVisual.backgroundColor,
+                                            boxShadow: `0 8px 18px ${leadStatusVisual.shadowColor}`
+                                        }}
+                                    >
                                         {lead.leadStatus}
                                     </span>
                                 </div>

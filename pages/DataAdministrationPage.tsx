@@ -12,7 +12,7 @@ import PageContainer from '../components/layout/PageContainer';
 import Tooltip from '../components/common/Tooltip';
 
 const ImportDataContent: React.FC = () => {
-    const { users, leadStatuses, leadSources, importLeads } = useCrm();
+    const { users, leadStatuses, leadSources, leadCategories, serviceTypes, importLeads } = useCrm();
     const { fireToast } = useSwal();
     const [fileName, setFileName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,6 +21,9 @@ const ImportDataContent: React.FC = () => {
     const [defaults, setDefaults] = useState({
         assignedToId: String(users[0]?.id || ''),
         leadStatus: leadStatuses[0]?.name || '',
+        leadType: serviceTypes[0]?.name || '',
+        service: '',
+        leadCategory: leadCategories[0]?.name || '',
         leadSource: String(leadSources[0]?.name || ''),
         note: ''
     });
@@ -40,6 +43,17 @@ const ImportDataContent: React.FC = () => {
         setDefaults(prev => ({ ...prev, [name]: value }));
     };
 
+    useEffect(() => {
+        setDefaults(prev => ({
+            ...prev,
+            assignedToId: prev.assignedToId || String(users[0]?.id || ''),
+            leadStatus: prev.leadStatus || leadStatuses[0]?.name || '',
+            leadType: prev.leadType || serviceTypes[0]?.name || '',
+            leadCategory: prev.leadCategory || leadCategories[0]?.name || '',
+            leadSource: prev.leadSource || String(leadSources[0]?.name || '')
+        }));
+    }, [users, leadStatuses, serviceTypes, leadCategories, leadSources]);
+
     const downloadTemplate = (e: React.MouseEvent) => {
         e.preventDefault();
         const toExcelText = (value: string) => `="${String(value).replace(/"/g, '""')}"`;
@@ -50,13 +64,15 @@ const ImportDataContent: React.FC = () => {
             }
             return stringVal;
         };
-        const headers = ['Name', 'Phone', 'Email', 'Service', 'Country', 'Date', 'Assign To Agent', 'Lead Source', 'Notes/Remark'];
-        const sampleRow1 = ['Jane Smith', toExcelText('919500391807|971528514124'), 'jane.smith@example.com', 'UK Visitor Visa', 'India', toExcelText('15-01-2026'), 'Aarav Patel', 'Google', 'Interested client. Call tomorrow.'];
-        const sampleRow2 = ['John Doe', toExcelText('919500391807,971528514124'), 'john.doe@example.com', 'Tourist Visa', 'India', toExcelText('16-01-2026'), 'Riya Shah', 'Website Inquiry', 'Asked for pricing details.'];
+        const headers = ['Name', 'Phone', 'Email', 'Service', 'Lead Type', 'Lead Category', 'Country', 'Date', 'Assign To Agent', 'Lead Source', 'Notes/Remark'];
+        const sampleRow1 = ['Jane Smith', toExcelText('919500391807|971528514124'), 'jane.smith@example.com', 'UK Visitor Visa Assistance', 'Visa', 'International Package', 'India', toExcelText('15-01-2026'), 'Aarav Patel', 'Google', 'Interested client. Call tomorrow.'];
+        const sampleRow2 = ['John Doe', toExcelText('919500391807,971528514124'), 'john.doe@example.com', 'Goa family trip', 'Holiday Package', 'Domestic Package', 'India', toExcelText('16-01-2026'), 'Riya Shah', 'Website Inquiry', 'Asked for pricing details.'];
+        const sampleRow3 = ['Aman Verma', toExcelText('919500391807'), 'aman.verma@example.com', 'Canada study consultation', 'Visa', 'Study Visa', 'United Arab Emirates', toExcelText('17-01-2026'), 'Kabir Mehta', 'IVR', 'Follow up next week.'];
         const csvContent = [
             headers.map(toCsvCell).join(','),
             sampleRow1.map(toCsvCell).join(','),
-            sampleRow2.map(toCsvCell).join(',')
+            sampleRow2.map(toCsvCell).join(','),
+            sampleRow3.map(toCsvCell).join(',')
         ].join('\n');
         
         const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -123,7 +139,7 @@ const ImportDataContent: React.FC = () => {
                                         <i className="ri-upload-cloud-2-line text-2xl"></i>
                                     </div>
                                     <p className="text-sm font-bold text-gray-700">{fileName || 'Click to select or drag and drop CSV/XLSX/XLS file'}</p>
-                                    <p className="text-xs text-gray-400 mt-1">Columns: Name, Phone, Email, Service, Country, Date (DD-MM-YYYY), Assign To Agent, Lead Source, Notes/Remark</p>
+                                    <p className="text-xs text-gray-400 mt-1">Columns: Name, Phone, Email, Service, Lead Type, Lead Category, Country, Date (DD-MM-YYYY), Assign To Agent, Lead Source, Notes/Remark</p>
                                 </div>
                             </div>
                         </div>
@@ -147,6 +163,27 @@ const ImportDataContent: React.FC = () => {
                             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Lead Source</label>
                             <select name="leadSource" value={defaults.leadSource} onChange={handleDefaultsChange} className="input-field" required>
                                 {leadSources.map(source => <option key={source.id} value={source.name}>{source.name}</option>)}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Service</label>
+                            <input name="service" value={defaults.service} onChange={handleDefaultsChange} className="input-field" placeholder="Optional default service" />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Lead Category</label>
+                            <select name="leadCategory" value={defaults.leadCategory} onChange={handleDefaultsChange} className="input-field">
+                                <option value="">No default</option>
+                                {leadCategories.map(category => <option key={category.id} value={category.name}>{category.name}</option>)}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Lead Type</label>
+                            <select name="leadType" value={defaults.leadType} onChange={handleDefaultsChange} className="input-field">
+                                <option value="">No default</option>
+                                {serviceTypes.map(type => <option key={type.id} value={type.name}>{type.name}</option>)}
                             </select>
                         </div>
 

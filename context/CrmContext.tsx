@@ -7,7 +7,7 @@ import {
   SystemLog, PermissionCategory, PermissionSection, ImportedFile, Announcement,
   Target, Notification, Email, WhatsAppMessage, Quote, WorkflowRule,
   SaleBy, WorkedBy, LeadStatus, LeadSource, ApplicationStatusItem, PassportStatusItem,
-  DocumentType, RemarkStatus, ServiceType, LostReason,
+  DocumentType, RemarkStatus, ServiceType, LostReason, LeadCategory,
   UserActivityLog, ChatMessage, CallLog, PaymentGatewaySettings
 } from '../types';
 import * as MockData from '../services/mockData';
@@ -35,6 +35,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const [leadStatuses, setLeadStatuses] = useState<LeadStatus[]>([]);
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
+  const [leadCategories, setLeadCategories] = useState<LeadCategory[]>([]);
   const [applicationStatuses, setApplicationStatuses] = useState<ApplicationStatusItem[]>([]);
   const [passportStatuses, setPassportStatuses] = useState<PassportStatusItem[]>([]);
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
@@ -138,6 +139,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setVendors(configData.vendors);
       setLeadSources(configData.leadSources);
       setLeadStatuses(configData.leadStatuses);
+      setLeadCategories(configData.leadCategories || []);
       setApplicationStatuses(configData.applicationStatuses);
       setPassportStatuses(configData.passportStatuses);
       setDocumentTypes(configData.documentTypes);
@@ -687,9 +689,17 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setTargets(tData);
   }, []);
 
-  const addLeadStatus = useCallback(async (name: string) => { await api.master.create('lead-status', { name }); await fetchData(); }, [fetchData]);
+  const addLeadStatus = useCallback(async (data: string | Partial<LeadStatus>) => {
+    const payload = typeof data === 'string' ? { name: data } : data;
+    await api.master.create('lead-status', payload);
+    await fetchData();
+  }, [fetchData]);
   const updateLeadStatus = useCallback(async (item: LeadStatus) => { await api.master.update('lead-status', item.id, item); await fetchData(); }, [fetchData]);
   const deleteLeadStatus = useCallback(async (id: string | number) => { await api.master.delete('lead-status', id); await fetchData(); }, [fetchData]);
+
+  const addLeadCategory = useCallback(async (name: string) => { await api.master.create('lead-category', { name }); await fetchData(); }, [fetchData]);
+  const updateLeadCategory = useCallback(async (item: LeadCategory) => { await api.master.update('lead-category', item.id, item); await fetchData(); }, [fetchData]);
+  const deleteLeadCategory = useCallback(async (id: string | number) => { await api.master.delete('lead-category', id); await fetchData(); }, [fetchData]);
   
   const addApplicationStatus = useCallback(async (name: string) => { await api.master.create('application-status', { name }); await fetchData(); }, [fetchData]);
   const updateApplicationStatus = useCallback(async (item: ApplicationStatusItem) => { await api.master.update('application-status', item.id, item); await fetchData(); }, [fetchData]);
@@ -813,7 +823,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const contextValue = useMemo(() => ({
     currentUser, users, leads, customers, invoices, roles, vendors, leadNotes, leadReminders, leadDocuments,
-    companyDetails, leadStatuses, leadSources, applicationStatuses, passportStatuses, documentTypes,
+    companyDetails, leadStatuses, leadSources, leadCategories, applicationStatuses, passportStatuses, documentTypes,
     remarkStatuses, serviceTypes, lostReasons, saleBy, workedBy,
     isLeadModalOpen, editingLead, isInvoiceModalOpen, editingInvoice,
     isUserModalOpen, editingUser, isRoleModalOpen, editingRole,
@@ -852,7 +862,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addPermissionSection, updatePermissionSection, deletePermissionSection,
     updatePaymentGatewaySettings,
     importLeads, deleteImportedLeadFile, logExport, addTarget, deleteTarget,
-    addLeadStatus, updateLeadStatus, deleteLeadStatus,
+    addLeadStatus, updateLeadStatus, deleteLeadStatus, addLeadCategory, updateLeadCategory, deleteLeadCategory,
     addApplicationStatus, updateApplicationStatus, deleteApplicationStatus,
     addPassportStatus, updatePassportStatus, deletePassportStatus,
     addDocumentType, updateDocumentType, deleteDocumentType,
@@ -864,7 +874,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     activeCall, getCallLogsForLead, initiateCall, endCall, getUnassignedLeadsCount
   }), [
     currentUser, users, leads, customers, invoices, roles, vendors, leadNotes, leadReminders, leadDocuments,
-    companyDetails, leadStatuses, leadSources, applicationStatuses, passportStatuses, documentTypes,
+    companyDetails, leadStatuses, leadSources, leadCategories, applicationStatuses, passportStatuses, documentTypes,
     remarkStatuses, serviceTypes, lostReasons, saleBy, workedBy,
     isLeadModalOpen, editingLead, isInvoiceModalOpen, editingInvoice,
     isUserModalOpen, editingUser, isRoleModalOpen, editingRole,
@@ -891,6 +901,7 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updatePaymentGatewaySettings,
     importLeads,
     deleteImportedLeadFile, logExport, addTarget, deleteTarget, addLeadStatus, updateLeadStatus, deleteLeadStatus,
+    addLeadCategory, updateLeadCategory, deleteLeadCategory,
     addApplicationStatus, updateApplicationStatus, deleteApplicationStatus, addPassportStatus,
     updatePassportStatus, deletePassportStatus, addDocumentType, updateDocumentType,
     deleteDocumentType, addRemarkStatus, updateRemarkStatus, deleteRemarkStatus, addLeadSource,
