@@ -37,18 +37,18 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ status, leads, onDrop, onCa
 
     return (
         <div 
-            className={`rounded-xl w-[320px] flex-shrink-0 flex flex-col h-full max-h-full border transition-colors ${isOver ? 'ring-2 ring-primary ring-opacity-50' : ''}`}
+            className={`rounded-xl w-[min(86vw,320px)] sm:w-[320px] flex-shrink-0 flex flex-col h-full max-h-full border transition-colors ${isOver ? 'ring-2 ring-primary ring-opacity-50' : ''}`}
             style={{ borderColor: statusVisual.borderColor, backgroundColor: statusVisual.backgroundColor }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
             {/* Sticky Header */}
-            <div className="p-3 pb-2 flex-shrink-0 sticky top-0 z-10 rounded-t-xl backdrop-blur-sm bg-opacity-90">
+            <div className="p-2.5 sm:p-3 pb-2 flex-shrink-0 sticky top-0 z-10 rounded-t-xl backdrop-blur-sm bg-opacity-90">
                 <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                         <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: statusVisual.color, boxShadow: `0 0 0 3px ${statusVisual.strongBackgroundColor}` }}></div>
-                        <h3 className="font-bold text-sm uppercase tracking-wide" style={{ color: statusVisual.color }}>{status.name}</h3>
+                        <h3 className="font-bold text-xs sm:text-sm uppercase tracking-wide truncate" style={{ color: statusVisual.color }}>{status.name}</h3>
                     </div>
                     <span className="text-xs font-bold bg-white px-2 py-0.5 rounded-md border shadow-sm" style={{ color: statusVisual.color, borderColor: statusVisual.borderColor }}>
                         {leads.length}

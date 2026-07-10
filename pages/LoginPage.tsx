@@ -3,29 +3,36 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCrm } from '../hooks/useCrm';
 
+const DEFAULT_AUTH_LOGO = '/assets/auth/default-logo.svg';
+
 const sliderData = [
     {
-        image: 'https://myway.cotgincrm.com/assets/images/signin1.webp',
+        image: '/assets/auth/signin1.svg',
         title: 'Explore Global Opportunities',
         description: 'Efficiently manage your travel leads from all around the world with our powerful CRM.'
     },
     {
-        image: 'https://myway.cotgincrm.com/assets/images/signin2.webp',
+        image: '/assets/auth/signin2.svg',
         title: 'Achieve Growth Together',
         description: 'Collaborate with your team seamlessly and make data-driven decisions to scale your agency.'
     }
 ];
 
+const setImageFallback = (fallbackSrc: string) => (event: React.SyntheticEvent<HTMLImageElement>) => {
+    event.currentTarget.onerror = null;
+    event.currentTarget.src = fallbackSrc;
+};
 
 const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('admin@luminacrm.com');
-  const [password, setPassword] = useState('12345678');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const navigate = useNavigate();
   const { login, companyDetails } = useCrm();
+  const logoSrc = companyDetails.logoUrl || DEFAULT_AUTH_LOGO;
 
   useEffect(() => {
     const slideInterval = setInterval(() => {
@@ -66,6 +73,7 @@ const LoginPage: React.FC = () => {
                                 src={slide.image}
                                 alt={slide.title}
                                 className={`slider-image ${currentSlide === index ? 'active' : ''}`}
+                                onError={setImageFallback('/assets/auth/signin1.svg')}
                             />
                         ))}
                     </div>
@@ -88,7 +96,12 @@ const LoginPage: React.FC = () => {
             {/* Right Side - Form */}
             <div className="login-form-section">
                 <div className="mb-8">
-                    <img src={companyDetails.logoUrl || "https://www.luminainfotech.com/assets/img/logo.svg"} alt={companyDetails.companyName} className="h-10 mb-4 rounded-md" />
+                    <img
+                        src={logoSrc}
+                        alt={companyDetails.companyName || 'CRM'}
+                        className="auth-logo"
+                        onError={setImageFallback(DEFAULT_AUTH_LOGO)}
+                    />
                     <h1 className="text-3xl font-bold text-gray-800">Login</h1>
                     <p className="text-gray-500 mt-2">Welcome back! Please enter your details.</p>
                 </div>

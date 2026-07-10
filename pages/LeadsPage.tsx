@@ -82,7 +82,7 @@ const getInitialVisibleColumns = (): LeadTableColumn[] => {
 
 
 const LeadsPage: React.FC = () => {
-  const { leads, users, leadSources, leadStatuses, bulkAssignLeads, bulkDeleteLeads, bulkUpdateLeadStatus, openLeadModal, currentUser } = useCrm();
+  const { leads, users, leadSources, leadStatuses, countries, bulkAssignLeads, bulkDeleteLeads, bulkUpdateLeadStatus, openLeadModal, currentUser } = useCrm();
   const permissions = usePermissions();
   const { confirmDelete, fireToast } = useSwal();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -133,12 +133,12 @@ const LeadsPage: React.FC = () => {
   const countriesForFilter = useMemo(() => {
     return Array.from(
       new Set(
-        allCountries
+        (countries.length ? countries : allCountries)
           .map(c => (c.name || '').trim())
           .filter(Boolean)
       )
     ).sort();
-  }, []);
+  }, [countries]);
 
   const countryFilterOptions = useMemo(() => {
     return [
@@ -340,22 +340,22 @@ const LeadsPage: React.FC = () => {
     
   return (
     <>
-    <div className="flex flex-col h-full">
-      <div className="p-4 sm:p-6 pb-0 flex-none space-y-4 bg-gray-50">
-          <div className="flex flex-wrap gap-4 justify-between items-center">
-              <h2 className="text-2xl font-semibold text-gray-800">Leads <span className="text-gray-400 font-medium text-xl">({totalItems})</span></h2>
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      <div className="p-3 sm:p-4 lg:p-6 pb-0 flex-none space-y-3 sm:space-y-4 bg-gray-50 min-w-0">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between items-stretch sm:items-center">
+              <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">Leads <span className="text-gray-400 font-medium text-lg sm:text-xl">({totalItems})</span></h2>
               {permissions.can('leads', 'create') && (
-                  <button onClick={() => openLeadModal(null)} className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/90 flex items-center shadow-sm transition-all hover:shadow-md">
+                  <button onClick={() => openLeadModal(null)} className="w-full sm:w-auto justify-center px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/90 flex items-center shadow-sm transition-all hover:shadow-md">
                       <i className="ri-add-line mr-2"></i>
                       Create Lead
                   </button>
               )}
           </div>
 
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200 min-w-0">
              {view === 'table' && (
-                <div className="border-b border-gray-200 mb-4">
-                    <nav className="-mb-px flex flex-wrap gap-x-6 gap-y-2">
+                <div className="border-b border-gray-200 mb-4 overflow-x-auto lead-tabs-scroll">
+                    <nav className="-mb-px flex w-max min-w-full gap-x-2 sm:gap-x-4">
                         {statusTabs.map(tab => {
                           const visual = getStatusVisual(tab.color);
                           const count = tab.key === 'All'
@@ -396,17 +396,17 @@ const LeadsPage: React.FC = () => {
                 </div>
             )}
 
-            <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center">
-                <div className="flex-grow flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+            <div className="flex flex-col 2xl:flex-row gap-3 lg:gap-4 justify-between items-stretch 2xl:items-center min-w-0">
+                <div className="flex-grow flex flex-col lg:flex-row gap-3 w-full 2xl:w-auto min-w-0">
                     <SearchInput
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search by name, phone, service or email..."
-                        className="w-full sm:w-64"
+                        className="w-full lg:w-72 flex-shrink-0"
                     />
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 w-full min-w-0">
                         {isSuperAdmin && (
-                            <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} className="filter-dropdown w-full sm:w-40">
+                            <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} className="filter-dropdown w-full">
                                 <option value="all">All Leads</option>
                                 <option value="assigned">Assigned</option>
                                 <option value="unassigned">Unassigned</option>
@@ -415,13 +415,13 @@ const LeadsPage: React.FC = () => {
                                 ))}
                             </select>
                         )}
-                        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="filter-dropdown w-full sm:w-40">
+                        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="filter-dropdown w-full">
                             <option value="all">All Sources</option>
                             {leadSources.map(source => (
                                 <option key={source.id} value={source.name}>{source.name}</option>
                             ))}
                         </select>
-                        <div className="w-full sm:w-40 h-[42px]">
+                        <div className="w-full h-[42px] min-w-0">
                             <SearchableDropdown
                                 options={countryFilterOptions}
                                 value={countryFilter}
@@ -434,13 +434,13 @@ const LeadsPage: React.FC = () => {
                             type="date"
                             value={dateFilter}
                             onChange={(e) => setDateFilter(e.target.value)}
-                            className="filter-dropdown w-full sm:w-44"
+                            className="filter-dropdown w-full"
                             title="Filter by lead date"
                         />
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full xl:w-auto justify-end">
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap 2xl:flex-nowrap items-center gap-2 w-full 2xl:w-auto justify-start 2xl:justify-end">
                     <div className="p-1 bg-gray-100 rounded-md flex items-center mr-1">
                         <Tooltip content="Table View">
                             <button onClick={() => setView('table')} className={`p-1.5 rounded transition-all ${view === 'table' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><i className="ri-list-check text-lg"></i></button>
@@ -456,7 +456,7 @@ const LeadsPage: React.FC = () => {
                         <Tooltip content="Import Leads from CSV">
                             <button 
                                 onClick={() => setIsImportModalOpen(true)} 
-                                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 hover:text-primary transition-all flex items-center shadow-sm"
+                                className="w-full sm:w-auto justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 hover:text-primary transition-all flex items-center shadow-sm"
                             >
                                 <i className="ri-upload-cloud-2-line text-lg mr-2 text-blue-500"></i>
                                 <span>Import</span>
@@ -467,7 +467,7 @@ const LeadsPage: React.FC = () => {
                     <Tooltip content="Export Leads to CSV">
                         <button 
                             onClick={handleExport} 
-                            className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 hover:text-primary transition-all flex items-center shadow-sm"
+                            className="w-full sm:w-auto justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 hover:text-primary transition-all flex items-center shadow-sm"
                         >
                             <i className="ri-download-cloud-2-line text-lg mr-2 text-green-500"></i>
                             <span className="hidden sm:inline">Export</span>
@@ -477,7 +477,7 @@ const LeadsPage: React.FC = () => {
                     <Tooltip content="Manage Columns">
                         <button 
                             onClick={() => setIsColumnsModalOpen(true)} 
-                            className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center shadow-sm"
+                            className="w-full sm:w-auto justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center shadow-sm"
                         >
                             <i className="ri-layout-column-line text-lg"></i>
                         </button>
@@ -485,12 +485,12 @@ const LeadsPage: React.FC = () => {
 
                     <div className="relative" ref={actionsMenuRef}>
                         <Tooltip content="More Actions">
-                            <button onClick={() => setIsActionsMenuOpen(p => !p)} className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center shadow-sm">
+                            <button onClick={() => setIsActionsMenuOpen(p => !p)} className="w-full sm:w-auto justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center shadow-sm">
                                 <i className="ri-more-fill text-lg"></i>
                             </button>
                         </Tooltip>
                          {isActionsMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 border border-gray-100 transform origin-top-right">
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-30 border border-gray-100 transform origin-top-right">
                                 <button onClick={() => { setIsHistoryModalOpen(true); setIsActionsMenuOpen(false); }} className="w-full text-left flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">
                                     <i className="ri-history-line mr-2 text-gray-400"></i>Import History
                                 </button>
@@ -502,18 +502,18 @@ const LeadsPage: React.FC = () => {
           </div>
 
           {view === 'table' && selectedIds.size > 0 && (
-              <div className="p-3 bg-indigo-50 rounded-md border border-indigo-200 flex flex-wrap items-center gap-3 animate-fade-in-up shadow-sm">
+              <div className="p-3 bg-indigo-50 rounded-md border border-indigo-200 flex flex-col lg:flex-row lg:flex-wrap items-stretch lg:items-center gap-3 animate-fade-in-up shadow-sm min-w-0">
                 <span className="text-sm font-bold text-indigo-700 bg-white px-2 py-1 rounded border border-indigo-200 shadow-sm">{selectedIds.size} Selected</span>
-                <div className="h-6 w-px bg-indigo-200 mx-2"></div>
+                <div className="hidden lg:block h-6 w-px bg-indigo-200 mx-2"></div>
                 
                 {permissions.can('leads', 'update') && (
                   <>
                     {isSuperAdmin && (
-                        <div className="flex items-center gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-center gap-2 w-full lg:w-auto">
                             <select 
                             value={bulkAssignUser}
                             onChange={(e) => setBulkAssignUser(e.target.value)}
-                            className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-white shadow-sm"
+                            className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-white shadow-sm min-w-0"
                             >
                             <option value="">Assign Agent...</option>
                             {users.map((user: User) => (
@@ -530,9 +530,9 @@ const LeadsPage: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="h-6 w-px bg-indigo-200 mx-2"></div>
+                    <div className="hidden lg:block h-6 w-px bg-indigo-200 mx-2"></div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-center gap-2 w-full lg:w-auto">
                         <select 
                             value={bulkStatus}
                             onChange={(e) => setBulkStatus(e.target.value)}
@@ -560,7 +560,7 @@ const LeadsPage: React.FC = () => {
                   </>
                 )}
                 
-                <div className="flex-grow"></div>
+                <div className="hidden lg:block flex-grow"></div>
 
                 {permissions.can('leads', 'delete') && (
                   <button 
@@ -574,9 +574,9 @@ const LeadsPage: React.FC = () => {
           )}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden p-4 sm:p-6 pt-2">
+      <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 lg:p-6 pt-2">
           {view === 'table' ? (
-            <div className="h-full flex flex-col bg-white rounded-lg shadow-md border border-gray-200">
+            <div className="h-full min-h-0 flex flex-col bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
                 <div className="flex-1 overflow-auto rounded-t-lg relative">
                   <LeadTable 
                     leads={paginatedData as Lead[]} 
@@ -599,7 +599,7 @@ const LeadsPage: React.FC = () => {
               />
             </div>
           ) : (
-            <div className="h-full overflow-hidden">
+            <div className="h-full min-h-0 overflow-hidden">
                 <LeadKanbanView leads={filteredLeads} />
             </div>
           )}
@@ -646,6 +646,17 @@ const LeadsPage: React.FC = () => {
        }
        .no-native-arrow {
          background-image: none !important;
+       }
+       .lead-tabs-scroll {
+         -webkit-overflow-scrolling: touch;
+         scrollbar-width: thin;
+       }
+       .lead-tabs-scroll::-webkit-scrollbar {
+         height: 4px;
+       }
+       .lead-tabs-scroll::-webkit-scrollbar-thumb {
+         background: #cbd5e1;
+         border-radius: 999px;
        }
        @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(10px); }

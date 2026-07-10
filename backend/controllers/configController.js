@@ -1,5 +1,6 @@
 
 const db = require('../db');
+const defaultCountries = require('../utils/defaultCountries');
 
 let sidebarOrderColumnReady = false;
 let leadMasterSchemaReady = false;
@@ -49,6 +50,20 @@ const ensureLeadMasterSchema = async () => {
         `);
     }
 
+    const [countryTables] = await db.execute('SHOW TABLES LIKE "countries"');
+    if (countryTables.length === 0) {
+        await db.execute(`
+            CREATE TABLE countries (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                iso_code VARCHAR(10) NULL,
+                phone_code VARCHAR(20) NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+    }
+
     const [leadTypeColumns] = await db.execute('SHOW COLUMNS FROM leads LIKE "lead_type"');
     if (leadTypeColumns.length === 0) {
         await db.execute('ALTER TABLE leads ADD COLUMN lead_type VARCHAR(100) NULL AFTER service');
@@ -61,9 +76,13 @@ const ensureLeadMasterSchema = async () => {
 
     const defaultCategories = ['Domestic Package', 'International Package', 'Study Visa', 'Business Trip', 'Package', 'Passport'];
     for (const name of defaultCategories) {
+        await db.execute('INSERT IGNORE INTO lead_categories (name) VALUES (?)', [name]);
+    }
+
+    for (const country of defaultCountries) {
         await db.execute(
-            'INSERT INTO lead_categories (name) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM lead_categories WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)))',
-            [name, name]
+            'INSERT IGNORE INTO countries (name, iso_code, phone_code) VALUES (?, ?, ?)',
+            [country.name, country.isoCode || null, country.phoneCode || null]
         );
     }
 
@@ -110,6 +129,7 @@ exports.getHandshake = async (req, res) => {
             'SELECT * FROM roles',
             'SELECT * FROM vendors',
             'SELECT * FROM lead_categories ORDER BY name ASC',
+            'SELECT id, name, iso_code AS isoCode, phone_code AS phoneCode FROM countries ORDER BY CASE WHEN name = "Unknown" THEN 0 WHEN name = "India" THEN 1 ELSE 2 END, name ASC',
             'SELECT id, company_name as companyName, address, city, state, country, pincode, from_name as fromName, from_email as fromEmail, reply_name as replyName, reply_email as replyEmail, help_email as helpEmail, info_email as infoEmail, phone, secondary_phone as secondaryPhone, instagram_link as instagramLink, facebook_link as facebookLink, twitter_link as twitterLink, linkedin_link as linkedinLink, website, gst_no as gstNo, timezone, date_format as dateFormat, currency, logo_url as logoUrl, favicon_url as faviconUrl, sidebar_order as sidebarOrder FROM company_details WHERE id = 1',
             'SELECT id, api_name as apiName, api_url as apiUrl, api_key as apiKey FROM email_api_credentials WHERE id = 1',
             'SELECT id, api_name as apiName, from_number as fromNumber, sid, token FROM mobile_api_credentials WHERE id = 1',
@@ -133,7 +153,7 @@ exports.getHandshake = async (req, res) => {
             return { ...role, permissions: perms };
         });
 
-        const workflows = results[20][0].map(rule => ({
+        const workflows = results[21][0].map(rule => ({
             ...rule,
             conditions: typeof rule.conditions === 'string' ? JSON.parse(rule.conditions) : rule.conditions,
             actionDetails: typeof rule.action_details === 'string' ? JSON.parse(rule.action_details) : rule.action_details,
@@ -142,12 +162,12 @@ exports.getHandshake = async (req, res) => {
             triggerEvent: rule.trigger_event
         }));
 
-        const announcements = results[21][0].map(ann => ({
+        const announcements = results[22][0].map(ann => ({
             ...ann,
             recipients: typeof ann.recipients === 'string' ? JSON.parse(ann.recipients) : ann.recipients
         }));
 
-        const companyDetails = results[14][0][0] || {};
+        const companyDetails = results[15][0][0] || {};
         companyDetails.sidebarOrder = parseSidebarOrder(companyDetails.sidebarOrder);
 
         res.json({
@@ -165,12 +185,13 @@ exports.getHandshake = async (req, res) => {
             roles: roles,
             vendors: results[12][0],
             leadCategories: results[13][0],
+            countries: results[14][0],
             companyDetails,
-            emailApiCredentials: results[15][0][0] || {},
-            mobileApiCredentials: results[16][0][0] || {},
-            paymentGatewaySettings: results[17][0][0] || {},
-            permissionCategories: results[18][0],
-            permissionSections: results[19][0],
+            emailApiCredentials: results[16][0][0] || {},
+            mobileApiCredentials: results[17][0][0] || {},
+            paymentGatewaySettings: results[18][0][0] || {},
+            permissionCategories: results[19][0],
+            permissionSections: results[20][0],
             workflowRules: workflows,
             announcements: announcements
         });

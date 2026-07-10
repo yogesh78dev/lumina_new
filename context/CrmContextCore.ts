@@ -5,7 +5,7 @@ import {
   SystemLog, PermissionCategory, PermissionSection, ImportedFile, Announcement,
   Target, Notification, Email, WhatsAppMessage, Quote, WorkflowRule,
   SaleBy, WorkedBy, LeadStatus, LeadSource, ApplicationStatusItem, PassportStatusItem,
-  DocumentType, RemarkStatus, ServiceType, LostReason, LeadCategory,
+  DocumentType, RemarkStatus, ServiceType, LostReason, LeadCategory, CountryMaster,
   UserActivityLog, ChatMessage, CallLog, PaymentGatewaySettings
 } from '../types';
 
@@ -35,6 +35,7 @@ export interface CrmContextType {
   leadStatuses: LeadStatus[];
   leadSources: LeadSource[];
   leadCategories: LeadCategory[];
+  countries: CountryMaster[];
   applicationStatuses: ApplicationStatusItem[];
   passportStatuses: PassportStatusItem[];
   documentTypes: DocumentType[];
@@ -200,6 +201,9 @@ export interface CrmContextType {
   addLeadCategory: (name: string) => Promise<void>;
   updateLeadCategory: (item: LeadCategory) => Promise<void>;
   deleteLeadCategory: (id: string | number) => Promise<void>;
+  addCountry: (name: string) => Promise<void>;
+  updateCountry: (item: CountryMaster) => Promise<void>;
+  deleteCountry: (id: string | number) => Promise<void>;
   addApplicationStatus: (name: string) => Promise<void>;
   updateApplicationStatus: (item: ApplicationStatusItem) => Promise<void>;
   deleteApplicationStatus: (id: string | number) => Promise<void>;

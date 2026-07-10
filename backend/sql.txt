@@ -53,6 +53,15 @@ CREATE TABLE lead_categories (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE countries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    iso_code VARCHAR(10),
+    phone_code VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 CREATE TABLE application_statuses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
@@ -516,6 +525,7 @@ INSERT INTO users (name, username, email, password, role_id, role_name, status) 
 INSERT INTO lead_sources (name) VALUES ('Google'), ('IVR'), ('Website Inquiry'), ('Social Media'), ('Walk-In'), ('Direct/Rep'), ('Agent');
 INSERT INTO lead_statuses (name, color, progress) VALUES ('New Lead', '#2563eb', 10), ('Follow-up', '#f59e0b', 50), ('Won', '#16a34a', 100), ('Lost', '#dc2626', 0);
 INSERT INTO lead_categories (name) VALUES ('Domestic Package'), ('International Package'), ('Study Visa'), ('Business Trip'), ('Package'), ('Passport');
+INSERT INTO countries (name, iso_code, phone_code) VALUES ('Unknown', 'UN', ''), ('India', 'IN', '+91'), ('Hong Kong', 'HK', '+852');
 INSERT INTO application_statuses (name) VALUES ('Documents Pending'), ('Documents Collected'), ('Application Lodged'), ('Visa Approved'), ('Visa Rejected');
 INSERT INTO passport_statuses (name) VALUES ('With Client'), ('With Agency'), ('Submitted to Embassy'), ('Dispatched to Client');
 INSERT INTO document_types (name) VALUES ('Passport Copy'), ('Photograph'), ('Bank Statement'), ('Flight Itinerary'), ('Hotel Booking');

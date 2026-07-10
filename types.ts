@@ -43,6 +43,13 @@ export interface LeadCategory {
   name: string;
 }
 
+export interface CountryMaster {
+  id: string | number;
+  name: string;
+  isoCode?: string;
+  phoneCode?: string;
+}
+
 export interface LostReason {
   id: string | number;
   name: string;

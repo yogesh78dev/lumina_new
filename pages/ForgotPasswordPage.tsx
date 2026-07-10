@@ -3,10 +3,19 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCrm } from '../hooks/useCrm';
 
+const DEFAULT_AUTH_LOGO = '/assets/auth/default-logo.svg';
+const FORGOT_PASSWORD_IMAGE = '/assets/auth/forgot-password.svg';
+
+const setImageFallback = (fallbackSrc: string) => (event: React.SyntheticEvent<HTMLImageElement>) => {
+    event.currentTarget.onerror = null;
+    event.currentTarget.src = fallbackSrc;
+};
+
 const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const { companyDetails } = useCrm();
+  const logoSrc = companyDetails.logoUrl || DEFAULT_AUTH_LOGO;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,13 +33,23 @@ const ForgotPasswordPage: React.FC = () => {
         <div className="login-card">
             {/* Left Side - Image */}
             <div className="forgot-image-section">
-                <img src="https://myway.cotgincrm.com/assets/images/forgetpassword.webp" alt="Forgot Password Illustration" className="forgot-image" />
+                <img
+                    src={FORGOT_PASSWORD_IMAGE}
+                    alt="Forgot Password Illustration"
+                    className="forgot-image"
+                    onError={setImageFallback(FORGOT_PASSWORD_IMAGE)}
+                />
             </div>
 
             {/* Right Side - Form */}
             <div className="login-form-section">
                 <div className="mb-8">
-                    <img src={companyDetails.logoUrl || "https://www.luminainfotech.com/assets/img/logo.svg"} alt={companyDetails.companyName} className="h-10 mb-4 rounded-md" />
+                    <img
+                        src={logoSrc}
+                        alt={companyDetails.companyName || 'CRM'}
+                        className="auth-logo"
+                        onError={setImageFallback(DEFAULT_AUTH_LOGO)}
+                    />
                     <h1 className="text-3xl font-bold text-gray-800">Forgot Password?</h1>
                     <p className="text-gray-500 mt-2">Enter your email and we'll send you a link to reset your password.</p>
                 </div>

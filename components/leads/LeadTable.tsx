@@ -279,24 +279,24 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
   };
 
   if (leads.length === 0) {
-    return <div className="p-8 text-center text-gray-500">
-        <i className="ri-folder-open-line text-4xl text-gray-300 mb-4"></i>
+    return <div className="p-6 sm:p-8 text-center text-gray-500">
+        <i className="ri-folder-open-line text-3xl sm:text-4xl text-gray-300 mb-3 sm:mb-4"></i>
         <p>No leads found in this category.</p>
     </div>;
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="w-full h-full overflow-auto lead-table-scroll">
+      <table className="min-w-max w-full text-xs sm:text-sm">
         <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
           <tr>
-            <th className="p-3 w-4 bg-gray-50"><input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size > 0 && selectedIds.size === leads.length} /></th>
+            <th className="p-2 sm:p-3 w-4 bg-gray-50"><input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size > 0 && selectedIds.size === leads.length} /></th>
             {visibleColumns.map(col => {
               const isSortable = !['id_serial', 'notes', 'reminders', 'actions'].includes(col.key);
               return (
                 <th 
                   key={col.key} 
-                  className={`p-3 text-left font-semibold text-gray-600 whitespace-nowrap bg-gray-50 group ${isSortable ? 'cursor-pointer hover:bg-gray-100' : ''}`}
+                  className={`p-2 sm:p-3 text-left font-semibold text-gray-600 whitespace-nowrap bg-gray-50 group ${isSortable ? 'cursor-pointer hover:bg-gray-100' : ''}`}
                   onClick={() => isSortable && requestSort(col.key as keyof Lead)}
                 >
                   <div className="flex items-center space-x-1">
@@ -323,7 +323,7 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
             
             return (
                 <tr key={lead.id} className={rowClass}>
-                <td className="p-3 w-4"><input type="checkbox" checked={selectedIds.has(String(lead.id))} onChange={() => handleSelectRow(String(lead.id))} /></td>
+                <td className="p-2 sm:p-3 w-4"><input type="checkbox" checked={selectedIds.has(String(lead.id))} onChange={() => handleSelectRow(String(lead.id))} /></td>
                 {visibleColumns.map(col => (
                     <React.Fragment key={`${lead.id}-${col.key}`}>
                         {renderCellContent(lead, col, index, isRotting)}
@@ -334,6 +334,20 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
           })}
         </tbody>
       </table>
+      <style>{`
+        .lead-table-scroll {
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+        }
+        .lead-table-scroll::-webkit-scrollbar {
+          height: 8px;
+          width: 8px;
+        }
+        .lead-table-scroll::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 999px;
+        }
+      `}</style>
     </div>
   );
 };

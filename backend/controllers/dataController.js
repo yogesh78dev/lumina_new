@@ -1,6 +1,7 @@
 
 const db = require('../db');
 const { logAction } = require('../utils/logger');
+const defaultCountries = require('../utils/defaultCountries');
 
 const normalize = (v) => String(v ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
 
@@ -26,10 +27,66 @@ const buildCountryNameSet = () => {
     return set;
 };
 
-const VALID_COUNTRY_SET = buildCountryNameSet();
 const EMPTY_IMPORT_VALUES = new Set(['', 'unknown', 'unassigned', 'n/a', 'na', 'none', 'null', '-']);
 
 const isEmptyImportValue = (value) => EMPTY_IMPORT_VALUES.has(normalize(value));
+
+let importMasterDataReady = false;
+let importMasterDataPromise = null;
+
+const ensureImportMasterData = async () => {
+    if (importMasterDataReady) return;
+    if (importMasterDataPromise) return importMasterDataPromise;
+
+    importMasterDataPromise = (async () => {
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS countries (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                iso_code VARCHAR(10) NULL,
+                phone_code VARCHAR(20) NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS lead_categories (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE
+            )
+        `);
+
+        const [leadTypeColumns] = await db.execute('SHOW COLUMNS FROM leads LIKE "lead_type"');
+        if (leadTypeColumns.length === 0) {
+            await db.execute('ALTER TABLE leads ADD COLUMN lead_type VARCHAR(100) NULL AFTER service');
+        }
+
+        const [categoryColumns] = await db.execute('SHOW COLUMNS FROM leads LIKE "lead_category"');
+        if (categoryColumns.length === 0) {
+            await db.execute('ALTER TABLE leads ADD COLUMN lead_category VARCHAR(100) NULL AFTER service');
+        }
+
+        for (const country of defaultCountries) {
+            await db.execute(
+                'INSERT IGNORE INTO countries (name, iso_code, phone_code) VALUES (?, ?, ?)',
+                [country.name, country.isoCode || null, country.phoneCode || null]
+            );
+        }
+
+        const defaultCategories = ['Domestic Package', 'International Package', 'Study Visa', 'Business Trip', 'Package', 'Passport'];
+        for (const name of defaultCategories) {
+            await db.execute('INSERT IGNORE INTO lead_categories (name) VALUES (?)', [name]);
+        }
+
+        importMasterDataReady = true;
+    })();
+
+    try {
+        await importMasterDataPromise;
+    } finally {
+        importMasterDataPromise = null;
+    }
+};
 
 const parseImportLeadDate = (value) => {
     const raw = String(value ?? '').trim();
@@ -103,9 +160,12 @@ exports.getImportHistory = async (req, res) => {
 
 exports.importLeads = async (req, res) => {
     const { leads, defaults, fileName } = req.body;
-    const connection = await db.getConnection();
+    let connection;
     
     try {
+        // DDL and master-data seeding must not run inside the long import transaction.
+        await ensureImportMasterData();
+        connection = await db.getConnection();
         await connection.beginTransaction();
 
         let insertedCount = 0;
@@ -131,48 +191,30 @@ exports.importLeads = async (req, res) => {
         const [portalSources] = await connection.execute('SELECT name FROM lead_sources');
         const [portalStatuses] = await connection.execute('SELECT name FROM lead_statuses');
         const [portalTypes] = await connection.execute('SELECT name FROM service_types');
-        const [leadTypeColumns] = await connection.execute('SHOW COLUMNS FROM leads LIKE "lead_type"');
-        if (leadTypeColumns.length === 0) {
-            await connection.execute('ALTER TABLE leads ADD COLUMN lead_type VARCHAR(100) NULL AFTER service');
-        }
-        const [categoryColumns] = await connection.execute('SHOW COLUMNS FROM leads LIKE "lead_category"');
-        if (categoryColumns.length === 0) {
-            await connection.execute('ALTER TABLE leads ADD COLUMN lead_category VARCHAR(100) NULL AFTER service');
-        }
-        const [categoryTables] = await connection.execute('SHOW TABLES LIKE "lead_categories"');
-        if (categoryTables.length === 0) {
-            await connection.execute(`
-                CREATE TABLE lead_categories (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(100) NOT NULL UNIQUE
-                )
-            `);
-        }
-        const defaultCategories = ['Domestic Package', 'International Package', 'Study Visa', 'Business Trip', 'Package', 'Passport'];
-        for (const name of defaultCategories) {
-            await connection.execute(
-                'INSERT INTO lead_categories (name) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM lead_categories WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)))',
-                [name, name]
-            );
-        }
+        const [portalCountries] = await connection.execute('SELECT name FROM countries');
         const [portalCategories] = await connection.execute('SELECT name FROM lead_categories');
         const userByName = new Map(portalUsers.map(u => [normalize(u.name), u]));
         const validSourceNames = new Set(portalSources.map(s => normalize(s.name)));
         const validLeadTypeNames = new Set(portalTypes.map(t => normalize(t.name)));
         const categoryByName = new Map(portalCategories.map(c => [normalize(c.name), c.name]));
         const statusByName = new Map(portalStatuses.map(s => [normalize(s.name), s.name]));
+        const countryByName = new Map(portalCountries.map(c => [normalize(c.name), c.name]));
 
         // Validate defaults as fallback values
         if (defaults?.leadSource && !validSourceNames.has(normalize(defaults.leadSource))) {
+            await connection.rollback();
             return res.status(400).json({ error: `Invalid default Lead Source: "${defaults.leadSource}". It must match portal Lead Source.` });
         }
         if (defaults?.leadStatus && !statusByName.has(normalize(defaults.leadStatus))) {
+            await connection.rollback();
             return res.status(400).json({ error: `Invalid default Lead Status: "${defaults.leadStatus}". It must match portal Lead Status.` });
         }
         if (defaults?.leadCategory && !categoryByName.has(normalize(defaults.leadCategory))) {
+            await connection.rollback();
             return res.status(400).json({ error: `Invalid default Lead Category: "${defaults.leadCategory}". It must match portal Lead Category.` });
         }
         if (defaults?.leadType && !validLeadTypeNames.has(normalize(defaults.leadType))) {
+            await connection.rollback();
             return res.status(400).json({ error: `Invalid default Lead Type: "${defaults.leadType}". It must match portal Lead Type.` });
         }
 
@@ -241,11 +283,18 @@ exports.importLeads = async (req, res) => {
             // Country validation (no random text)
             const rawCountry = String(lead.country || '').trim();
             const countryNormalized = normalize(rawCountry);
-            // console.log('Country from Excel:', rawCountry);
-            // console.log('Normalized:', countryNormalized);
-            // console.log('Exists:', VALID_COUNTRY_SET.has(countryNormalized));
-            if (rawCountry && !VALID_COUNTRY_SET.has(countryNormalized)) {
-                rowErrors.push(`Invalid Country "${rawCountry}" (must be a valid country name)`);
+            let finalCountry = rawCountry || defaults.country || 'India';
+            if (rawCountry) {
+                const matchedCountry = countryByName.get(countryNormalized);
+                if (!matchedCountry) {
+                    rowErrors.push(`Invalid Country "${rawCountry}" (must match portal Country)`);
+                } else {
+                    finalCountry = matchedCountry;
+                }
+            } else if (defaults?.country) {
+                finalCountry = countryByName.get(normalize(defaults.country)) || defaults.country;
+            } else {
+                finalCountry = countryByName.get(normalize('India')) || 'India';
             }
 
             // Assign To Agent validation by portal user name
@@ -335,7 +384,7 @@ exports.importLeads = async (req, res) => {
                 service: rowService || defaults.service || null,
                 leadType: finalLeadType,
                 leadCategory: finalLeadCategory,
-                country: rawCountry || defaults.country || 'India',
+                country: finalCountry,
                 leadSource: finalLeadSource,
                 leadStatus: finalLeadStatus,
                 assignedToId,
@@ -403,11 +452,11 @@ exports.importLeads = async (req, res) => {
         await connection.commit();
         res.json({ success: true, count: insertedCount });
     } catch (err) {
-        await connection.rollback();
+        if (connection) await connection.rollback();
         console.error('Import failed:', err);
         res.status(500).json({ error: 'Data import failed: ' + err.message });
     } finally {
-        connection.release();
+        if (connection) connection.release();
     }
 };
 

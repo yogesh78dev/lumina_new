@@ -4,6 +4,7 @@ import { Lead } from '../../types';
 import { useCrm } from '../../hooks/useCrm';
 import { allCountries } from '../../utils/countries';
 import { getStatusVisual } from '../../utils/statusColors';
+import SearchableDropdown from '../common/SearchableDropdown';
 
 interface LeadModalProps {
   isOpen: boolean;
@@ -64,7 +65,7 @@ const toInputDateValue = (value?: string) => {
 };
 
 const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAndNew, lead }) => {
-  const { leadSources, leadStatuses, leadCategories, serviceTypes, users, currentUser } = useCrm();
+  const { leadSources, leadStatuses, leadCategories, countries, serviceTypes, users, currentUser } = useCrm();
   const [formData, setFormData] = useState<LeadFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdditionalPhones, setShowAdditionalPhones] = useState(false);
@@ -72,6 +73,19 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
     const selectedStatus = leadStatuses.find(status => status.name === formData.leadStatus);
     return getStatusVisual(selectedStatus?.color);
   }, [leadStatuses, formData.leadStatus]);
+  const baseCountryOptions = useMemo(
+    () => (countries.length ? countries : allCountries).map(country => ({
+        value: country.name,
+        label: country.name
+      })),
+    [countries]
+  );
+  const countryOptions = useMemo(
+    () => formData.country && !baseCountryOptions.some(country => country.value === formData.country)
+      ? [{ value: formData.country, label: formData.country }, ...baseCountryOptions]
+      : baseCountryOptions,
+    [baseCountryOptions, formData.country]
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -92,7 +106,7 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
             const isSuperAdmin = currentUser?.role === 'Super Admin';
             setFormData({
                 ...initialFormData,
-                country: 'India',
+                country: baseCountryOptions.some(country => country.value === 'India') ? 'India' : (baseCountryOptions[0]?.value || 'India'),
                 leadCategory: leadCategories[0]?.name || '',
                 leadType: serviceTypes[0]?.name || '',
                 leadSource: leadSources[0]?.name || '',
@@ -107,7 +121,7 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
         }
         setIsSubmitting(false);
     }
-  }, [lead, isOpen, leadSources, leadStatuses, leadCategories, serviceTypes, currentUser]);
+  }, [lead, isOpen, leadSources, leadStatuses, leadCategories, serviceTypes, currentUser, baseCountryOptions]);
 
   if (!isOpen) return null;
 
@@ -119,7 +133,7 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
   const handleClear = () => {
       setFormData({
         ...initialFormData,
-        country: 'India',
+        country: baseCountryOptions.some(country => country.value === 'India') ? 'India' : (baseCountryOptions[0]?.value || 'India'),
         leadCategory: leadCategories[0]?.name || '',
         leadType: serviceTypes[0]?.name || '',
         leadSource: leadSources[0]?.name || '',
@@ -213,9 +227,15 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
                   </div>
                   <div>
                     <label className="field-label">Country</label>
-                    <select name="country" value={formData.country} onChange={handleChange} className="input-field">
-                      {allCountries.map(c => <option key={c.isoCode} value={c.name}>{c.name}</option>)}
-                    </select>
+                    <div className="h-[38px]">
+                      <SearchableDropdown
+                        options={countryOptions}
+                        value={formData.country || ''}
+                        onChange={(value) => setFormData(prev => ({ ...prev, country: value }))}
+                        placeholder="Select Country"
+                        buttonClassName="country-search-select"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="field-label">Location</label>

@@ -10,6 +10,8 @@ interface StatusItem {
     // FIX: Allow id to be string or number to accommodate various CRM data types
     id: string | number;
     name: string;
+    isoCode?: string;
+    phoneCode?: string;
     color?: string;
     progress?: number;
 }
@@ -31,6 +33,7 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
     const [progress, setProgress] = useState('0');
     const [editingItem, setEditingItem] = useState<StatusItem | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const isCountryManager = title === 'Country';
 
     const { items: sortedItems, requestSort, sortConfig } = useSorting<StatusItem>(items, { key: 'name', direction: 'ascending' });
 
@@ -103,8 +106,8 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md h-fit">
+        <div className={`grid grid-cols-1 ${isCountryManager ? 'xl:grid-cols-4' : 'lg:grid-cols-3'} gap-4 sm:gap-6`}>
+            <div className={`${isCountryManager ? 'xl:col-span-1' : 'lg:col-span-1'} bg-white p-4 sm:p-6 rounded-xl shadow-md h-fit border border-gray-100`}>
                 <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">{editingItem ? `Edit ${title}` : `Add ${title}`}</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -165,34 +168,81 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
                 </form>
             </div>
 
-            <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">{title} List</h3>
+            <div className={`${isCountryManager ? 'xl:col-span-3' : 'lg:col-span-2'} bg-white p-4 sm:p-6 rounded-xl shadow-md border border-gray-100 min-w-0`}>
+                <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4">
+                    <div>
+                        <h3 className="text-lg font-semibold">{title} List</h3>
+                        {isCountryManager && (
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                {filteredItems.length} of {items.length} countries shown
+                            </p>
+                        )}
+                    </div>
                     <SearchInput
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search..."
-                        className="w-full max-w-xs"
+                        placeholder={isCountryManager ? 'Search country...' : 'Search...'}
+                        className="w-full md:max-w-xs"
                     />
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-100">
+
+                {isCountryManager && (
+                    <div className="md:hidden space-y-2 max-h-[58vh] overflow-y-auto pr-1 country-list-scroll">
+                        {filteredItems.map((item, index) => (
+                            <div key={item.id} className="rounded-xl border border-gray-100 bg-gray-50/70 p-3 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center text-[10px] font-black text-gray-500">
+                                            {index + 1}
+                                        </span>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-gray-800 truncate">{item.name}</p>
+                                            {(item.isoCode || item.phoneCode) && (
+                                                <p className="text-[11px] text-gray-500 truncate">
+                                                    {[item.isoCode, item.phoneCode].filter(Boolean).join(' • ')}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                    <button onClick={() => handleEditClick(item)} className="w-9 h-9 flex items-center justify-center rounded-full text-gray-500 bg-white hover:text-primary transition-colors">
+                                        <i className="ri-pencil-fill text-base"></i>
+                                    </button>
+                                    <button onClick={() => handleDeleteClick(item)} className="w-9 h-9 flex items-center justify-center rounded-full text-gray-500 bg-white hover:text-red-500 transition-colors">
+                                        <i className="ri-delete-bin-5-fill text-base"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {filteredItems.length === 0 && (
+                            <div className="text-center py-10 text-gray-500 rounded-xl bg-gray-50 border border-dashed border-gray-200">No countries found.</div>
+                        )}
+                    </div>
+                )}
+
+                <div className={`${isCountryManager ? 'hidden md:block max-h-[62vh] overflow-auto country-list-scroll border border-gray-100 rounded-xl' : 'overflow-x-auto'}`}>
+                    <table className="w-full text-sm min-w-[520px]">
+                        <thead className={`${isCountryManager ? 'bg-gray-100 sticky top-0 z-10 shadow-sm' : 'bg-gray-100'}`}>
                             <tr>
-                                <th className="p-3 text-left font-semibold text-gray-600">S.No</th>
+                                <th className="p-3 text-left font-semibold text-gray-600 w-20">S.No</th>
                                 <th className="p-3 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 group" onClick={() => requestSort('name')}>
                                     <div className="flex items-center">Name {sortConfig?.key === 'name' ? (<i className={`ml-1 ${sortConfig.direction === 'ascending' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}`}></i>) : (<i className="ml-1 text-gray-400 ri-arrow-up-down-line opacity-0 group-hover:opacity-100 transition-opacity"></i>)}</div>
                                 </th>
+                                {isCountryManager && <th className="p-3 text-left font-semibold text-gray-600">ISO</th>}
+                                {isCountryManager && <th className="p-3 text-left font-semibold text-gray-600">Phone Code</th>}
                                 {enableColorProgress && <th className="p-3 text-left font-semibold text-gray-600">Color</th>}
                                 {enableColorProgress && <th className="p-3 text-left font-semibold text-gray-600">Progress</th>}
-                                <th className="p-3 text-left font-semibold text-gray-600">Action</th>
+                                <th className="p-3 text-left font-semibold text-gray-600 w-24">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                             {filteredItems.map((item, index) => (
-                                <tr key={item.id}>
+                                <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="p-3 text-gray-600">{index + 1}</td>
                                     <td className="p-3 font-medium text-gray-800">{item.name}</td>
+                                    {isCountryManager && <td className="p-3 text-gray-600 font-mono text-xs">{item.isoCode || '-'}</td>}
+                                    {isCountryManager && <td className="p-3 text-gray-600 font-mono text-xs">{item.phoneCode || '-'}</td>}
                                     {enableColorProgress && (
                                         <td className="p-3">
                                             <span className="inline-flex items-center gap-2">
@@ -219,7 +269,7 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
                                 </tr>
                             ))}
                             {filteredItems.length === 0 && (
-                                <tr><td colSpan={enableColorProgress ? 5 : 3} className="text-center py-6 text-gray-500">No items found.</td></tr>
+                                <tr><td colSpan={isCountryManager ? 5 : (enableColorProgress ? 5 : 3)} className="text-center py-6 text-gray-500">No items found.</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -230,10 +280,11 @@ const StatusManager: React.FC<StatusManagerProps> = ({ title, items, onAdd, onUp
 };
 
 const CRMConfiguration: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'pipeline' | 'category' | 'application' | 'passport' | 'document' | 'remark' | 'source' | 'service' | 'lost'>('pipeline');
+    const [activeTab, setActiveTab] = useState<'pipeline' | 'category' | 'country' | 'application' | 'passport' | 'document' | 'remark' | 'source' | 'service' | 'lost'>('pipeline');
     const { 
         leadStatuses, addLeadStatus, updateLeadStatus, deleteLeadStatus,
         leadCategories, addLeadCategory, updateLeadCategory, deleteLeadCategory,
+        countries, addCountry, updateCountry, deleteCountry,
         applicationStatuses, addApplicationStatus, updateApplicationStatus, deleteApplicationStatus,
         passportStatuses, addPassportStatus, updatePassportStatus, deletePassportStatus,
         documentTypes, addDocumentType, updateDocumentType, deleteDocumentType,
@@ -256,6 +307,8 @@ const CRMConfiguration: React.FC = () => {
                 return <StatusManager title="Lead Status" items={leadStatuses} onAdd={addLeadStatus} onUpdate={updateLeadStatus} onDelete={deleteLeadStatus} enableColorProgress />;
             case 'category':
                 return <StatusManager title="Lead Category" items={leadCategories} onAdd={addLeadCategory} onUpdate={updateLeadCategory} onDelete={deleteLeadCategory} />;
+            case 'country':
+                return <StatusManager title="Country" items={countries} onAdd={addCountry} onUpdate={updateCountry} onDelete={deleteCountry} />;
             // case 'application':
             //     return <StatusManager title="Application Status" items={applicationStatuses} onAdd={addApplicationStatus} onUpdate={updateApplicationStatus} onDelete={deleteApplicationStatus} />;
             // case 'passport':
@@ -276,7 +329,7 @@ const CRMConfiguration: React.FC = () => {
     };
 
     return (
-        <div className="container mx-auto">
+        <div className="container mx-auto max-w-full">
             <div className="flex space-x-2 mb-6 p-2 bg-white rounded-lg shadow-sm w-full overflow-x-auto thin-scrollbar">
                 <button onClick={() => setActiveTab('pipeline')} className={tabClass('pipeline')}>Lead Status</button>
                 <button onClick={() => setActiveTab('category')} className={tabClass('category')}>Lead Category</button>
@@ -287,6 +340,7 @@ const CRMConfiguration: React.FC = () => {
                 <button onClick={() => setActiveTab('source')} className={tabClass('source')}>Lead Source</button>
                 <button onClick={() => setActiveTab('service')} className={tabClass('service')}>Lead Type</button>
                 <button onClick={() => setActiveTab('lost')} className={tabClass('lost')}>Lost Reason</button>
+                <button onClick={() => setActiveTab('country')} className={tabClass('country')}>Country</button>
             </div>
             <div>
                 {renderContent()}
@@ -295,6 +349,22 @@ const CRMConfiguration: React.FC = () => {
                 .thin-scrollbar::-webkit-scrollbar { height: 6px; }
                 .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
                 .thin-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+                .country-list-scroll {
+                    scrollbar-width: thin;
+                    scrollbar-color: #cbd5e1 transparent;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .country-list-scroll::-webkit-scrollbar {
+                    width: 6px;
+                    height: 6px;
+                }
+                .country-list-scroll::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .country-list-scroll::-webkit-scrollbar-thumb {
+                    background: #cbd5e1;
+                    border-radius: 999px;
+                }
             `}</style>
         </div>
     );

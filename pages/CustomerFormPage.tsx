@@ -7,20 +7,33 @@ import { useSwal } from '../hooks/useSwal';
 import { allCountries } from '../utils/countries';
 import { capitalizeName } from '../utils/formatters';
 import PageContainer from '../components/layout/PageContainer';
+import SearchableDropdown from '../components/common/SearchableDropdown';
 
 const CustomerFormPage: React.FC = () => {
     const { customerId } = useParams<{ customerId: string }>();
     const navigate = useNavigate();
-    const { getCustomerById, addCustomer, updateCustomer, vendors, users, openVendorModal, generateNextCustomerId, passportStatuses } = useCrm();
+    const { getCustomerById, addCustomer, updateCustomer, vendors, users, openVendorModal, generateNextCustomerId, passportStatuses, countries } = useCrm();
     const { fireToast } = useSwal();
 
     const isEditing = Boolean(customerId);
+    const [formData, setFormData] = useState<Partial<Customer>>({});
+
+    const baseCountryOptions = React.useMemo(
+        () => (countries.length ? countries : allCountries).map(country => ({ value: country.name, label: country.name })),
+        [countries]
+    );
+    const countryOptions = React.useMemo(
+        () => formData.country && !baseCountryOptions.some(country => country.value === formData.country)
+            ? [{ value: formData.country, label: formData.country }, ...baseCountryOptions]
+            : baseCountryOptions,
+        [baseCountryOptions, formData.country]
+    );
 
     const getInitialFormData = (currentVendors: Vendor[], currentUsers: User[]): Omit<Customer, 'id' | 'createdAt' | 'customerId'> => ({
         name: '',
         phone: '',
         email: '',
-        country: 'India',
+        country: baseCountryOptions.some(country => country.value === 'India') ? 'India' : (baseCountryOptions[0]?.value || 'India'),
         companyName: '',
         gstNumber: '',
         location: '',
@@ -31,8 +44,6 @@ const CustomerFormPage: React.FC = () => {
         action: '',
         passportStatus: 'With Client',
     });
-
-    const [formData, setFormData] = useState<Partial<Customer>>({});
 
     useEffect(() => {
         if (isEditing && customerId) {
@@ -56,7 +67,7 @@ const CustomerFormPage: React.FC = () => {
                 });
             }
         }
-    }, [customerId, isEditing, getCustomerById, navigate, generateNextCustomerId]);
+    }, [customerId, isEditing, getCustomerById, navigate, generateNextCustomerId, baseCountryOptions]);
 
     // Handle Vendor dependency separately
     useEffect(() => {
@@ -156,9 +167,14 @@ const CustomerFormPage: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Country</label>
-                            <select name="country" value={formData.country} onChange={handleChange} className="mt-1 input-field">
-                                {allCountries.map(c => <option key={c.isoCode} value={c.name}>{c.name}</option>)}
-                            </select>
+                            <div className="mt-1 h-[42px]">
+                                <SearchableDropdown
+                                    options={countryOptions}
+                                    value={formData.country || ''}
+                                    onChange={(value) => setFormData(prev => ({ ...prev, country: value }))}
+                                    placeholder="Select Country"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

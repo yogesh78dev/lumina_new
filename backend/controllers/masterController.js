@@ -8,6 +8,7 @@ const tableMap = {
     'lead-source': 'lead_sources',
     'lead-status': 'lead_statuses',
     'lead-category': 'lead_categories',
+    'country': 'countries',
     'application-status': 'application_statuses',
     'passport-status': 'passport_statuses',
     'document-type': 'document_types',

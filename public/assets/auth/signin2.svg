@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" role="img" aria-labelledby="title desc">
+  <title id="title">CRM dashboard growth</title>
+  <desc id="desc">Illustration of a CRM dashboard with leads and growth charts.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f8fbff"/>
+      <stop offset="1" stop-color="#fff4f4"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#111827" flood-opacity=".14"/>
+    </filter>
+  </defs>
+  <rect width="720" height="480" rx="36" fill="url(#bg)"/>
+  <circle cx="104" cy="92" r="44" fill="#c4161c" opacity=".12"/>
+  <circle cx="616" cy="384" r="76" fill="#2563eb" opacity=".10"/>
+  <g transform="translate(106 82)" filter="url(#shadow)">
+    <rect width="508" height="318" rx="30" fill="#ffffff"/>
+    <rect width="508" height="72" rx="30" fill="#20242a"/>
+    <circle cx="46" cy="36" r="9" fill="#ffb4b7"/>
+    <circle cx="76" cy="36" r="9" fill="#ffd7a8"/>
+    <circle cx="106" cy="36" r="9" fill="#bdeac8"/>
+    <rect x="350" y="26" width="106" height="20" rx="10" fill="#ffffff" opacity=".18"/>
+    <rect x="34" y="104" width="134" height="76" rx="18" fill="#fff1f2"/>
+    <rect x="190" y="104" width="134" height="76" rx="18" fill="#eff6ff"/>
+    <rect x="346" y="104" width="128" height="76" rx="18" fill="#f1f5f9"/>
+    <path d="M58 154h78M58 132h48" stroke="#c4161c" stroke-width="10" stroke-linecap="round"/>
+    <path d="M214 154h78M214 132h52" stroke="#2563eb" stroke-width="10" stroke-linecap="round"/>
+    <path d="M370 154h70M370 132h42" stroke="#64748b" stroke-width="10" stroke-linecap="round"/>
+    <rect x="34" y="212" width="222" height="74" rx="18" fill="#f8fafc"/>
+    <path d="M62 259c34-38 62-30 84-8 18 18 42 15 76-22" fill="none" stroke="#c4161c" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="288" y="212" width="186" height="74" rx="18" fill="#f8fafc"/>
+    <circle cx="326" cy="249" r="20" fill="#c4161c"/>
+    <circle cx="380" cy="249" r="20" fill="#2563eb"/>
+    <circle cx="434" cy="249" r="20" fill="#f59e0b"/>
+  </g>
+  <g transform="translate(448 304) rotate(-10)">
+    <rect width="138" height="92" rx="18" fill="#c4161c"/>
+    <path d="M27 50h84M27 31h46M27 68h62" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity=".9"/>
+  </g>
+</svg>

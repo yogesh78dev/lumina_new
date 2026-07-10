@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 72" role="img" aria-labelledby="title desc">
+  <title id="title">CRM Logo</title>
+  <desc id="desc">Fallback logo for the CRM login screens.</desc>
+  <rect width="260" height="72" rx="18" fill="#ffffff"/>
+  <rect x="10" y="10" width="52" height="52" rx="14" fill="#c4161c"/>
+  <path d="M25 47 36 21l11 26h-8l-2.2-6.1h-8L26.7 47H25Zm6-12.8h3.5L32.8 29l-1.8 5.2Z" fill="#ffffff"/>
+  <path d="M74 28c0-7.2 5.4-12.3 13.1-12.3 5.9 0 10.3 2.9 12 7.8l-7.1 2.3c-.8-2.2-2.4-3.4-4.8-3.4-3.3 0-5.6 2.3-5.6 5.7v15.7H74V28Zm31.7-11.7h7.5v27.5h-7.5V16.3Zm16.3 0h7.2l9.6 15.8 9.6-15.8h7.2v27.5h-7.4V29l-7.1 11.3h-4.6L129.4 29v14.8H122V16.3Z" fill="#20242a"/>
+  <text x="74" y="61" font-family="Poppins, Arial, sans-serif" font-size="11" font-weight="600" fill="#6b7280" letter-spacing="1.4">TRAVEL CRM</text>
+</svg>

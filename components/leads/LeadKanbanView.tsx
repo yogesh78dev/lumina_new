@@ -43,8 +43,8 @@ const LeadKanbanView: React.FC<LeadKanbanViewProps> = ({ leads }) => {
     }));
 
     return (
-        <div className="h-full flex flex-col">
-             <div className="flex-grow flex gap-4 overflow-x-auto pb-4 px-2 items-stretch">
+        <div className="h-full min-h-0 flex flex-col overflow-hidden">
+             <div className="flex-grow min-h-0 flex gap-3 sm:gap-4 overflow-x-auto overflow-y-hidden pb-4 px-1 sm:px-2 items-stretch kanban-board-scroll">
                 {leadsByStatus.map(statusGroup => (
                     <KanbanColumn
                         key={statusGroup.id}
@@ -55,6 +55,19 @@ const LeadKanbanView: React.FC<LeadKanbanViewProps> = ({ leads }) => {
                     />
                 ))}
             </div>
+            <style>{`
+                .kanban-board-scroll {
+                    -webkit-overflow-scrolling: touch;
+                    scrollbar-width: thin;
+                }
+                .kanban-board-scroll::-webkit-scrollbar {
+                    height: 8px;
+                }
+                .kanban-board-scroll::-webkit-scrollbar-thumb {
+                    background: #cbd5e1;
+                    border-radius: 999px;
+                }
+            `}</style>
         </div>
     );
 }
