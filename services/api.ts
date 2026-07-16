@@ -1,7 +1,7 @@
 
 // const API_BASE_URL = 'https://crm.theglobalvisa.in/api';   //old
-// const API_BASE_URL = 'https://crm.myway-destination.com/api'; //live
-const API_BASE_URL = 'http://localhost:3002/api';
+const API_BASE_URL = 'https://crm.myway-destination.com/api'; //live
+// const API_BASE_URL = 'http://localhost:3002/api';
 // const API_BASE_URL = 'http://193.203.160.175:3002/api'; //testing
 // const API_BASE_URL = 'http://72.60.99.203:3002/api'; //testing
 

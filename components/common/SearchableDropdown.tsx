@@ -49,7 +49,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({ options, value,
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`input-field flex items-center justify-between text-left h-full ${buttonClassName}`}
+        className={`input-field !flex items-center justify-between text-left h-full ${buttonClassName}`}
       >
         <span className="flex items-center truncate">
             {selectedOption?.icon && <span className="mr-2 text-base">{selectedOption.icon}</span>}

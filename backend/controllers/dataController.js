@@ -2,6 +2,7 @@
 const db = require('../db');
 const { logAction } = require('../utils/logger');
 const defaultCountries = require('../utils/defaultCountries');
+const { PHONE_VALIDATION_MESSAGE, normalizePhoneNumber, isValidPhoneNumber } = require('../utils/phoneValidation');
 
 const normalize = (v) => String(v ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
 
@@ -169,15 +170,6 @@ exports.importLeads = async (req, res) => {
         await connection.beginTransaction();
 
         let insertedCount = 0;
-        const cleanPhone = (p) => {
-            if (!p) return null;
-            let phoneStr = String(p).trim();
-            if (phoneStr.includes('E+') || phoneStr.includes('e+')) {
-                phoneStr = Number(phoneStr).toLocaleString('fullwide', { useGrouping: false });
-            }
-            return phoneStr.replace(/\s+/g, '');
-        };
-
         const splitPhoneCandidates = (value) => {
             if (!value) return [];
             // Supports: "a,b", "a | b" (+ legacy separators)
@@ -258,15 +250,20 @@ exports.importLeads = async (req, res) => {
             // Merge and normalize phone values from all potential columns.
             // If `phone` contains multiple numbers, map them across phone1..phone4.
             const phoneParts = [
-                ...splitPhoneCandidates(lead.phone),
-                ...splitPhoneCandidates(lead.phone2),
-                ...splitPhoneCandidates(lead.phone3),
-                ...splitPhoneCandidates(lead.phone4)
+                ...splitPhoneCandidates(lead.phone ?? lead['phone number'] ?? lead.mobile ?? lead['mobile number']),
+                ...splitPhoneCandidates(lead.phone2 ?? lead['phone 2'] ?? lead['phone number 2']),
+                ...splitPhoneCandidates(lead.phone3 ?? lead['phone 3'] ?? lead['phone number 3']),
+                ...splitPhoneCandidates(lead.phone4 ?? lead['phone 4'] ?? lead['phone number 4'])
             ];
 
             const normalizedPhones = [];
+            const invalidPhones = [];
             for (const part of phoneParts) {
-                const normalized = cleanPhone(part);
+                if (!isValidPhoneNumber(part)) {
+                    invalidPhones.push(part);
+                    continue;
+                }
+                const normalized = normalizePhoneNumber(part);
                 if (normalized && !normalizedPhones.includes(normalized)) {
                     normalizedPhones.push(normalized);
                 }
@@ -278,6 +275,9 @@ exports.importLeads = async (req, res) => {
             const phone4 = normalizedPhones[3] || null;
             if (!phone) {
                 rowErrors.push('Phone is required');
+            }
+            if (invalidPhones.length > 0) {
+                rowErrors.push(`Invalid Phone "${invalidPhones.join(', ')}" (${PHONE_VALIDATION_MESSAGE})`);
             }
 
             // Country validation (no random text)

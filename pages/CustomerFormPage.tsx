@@ -78,7 +78,13 @@ const CustomerFormPage: React.FC = () => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData((prev) => ({
+            ...prev,
+            [name]:
+            name === "phone"
+                ? value.replace(/\D/g, "").slice(0, 15) // Only numbers
+                : value,
+        }));
     };
 
     const handleClear = () => {

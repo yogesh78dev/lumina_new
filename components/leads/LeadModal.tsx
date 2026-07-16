@@ -4,6 +4,7 @@ import { Lead } from '../../types';
 import { useCrm } from '../../hooks/useCrm';
 import { allCountries } from '../../utils/countries';
 import { getStatusVisual } from '../../utils/statusColors';
+import { PHONE_VALIDATION_MESSAGE, isValidPhoneNumber, normalizePhoneNumber } from '../../utils/phoneValidation';
 import SearchableDropdown from '../common/SearchableDropdown';
 
 interface LeadModalProps {
@@ -17,6 +18,8 @@ interface LeadModalProps {
 interface LeadFormData extends Omit<Lead, 'id' | 'createdAt'> {
     createdAt?: string;
 }
+
+type PhoneFieldName = 'phone' | 'phone2' | 'phone3' | 'phone4';
 
 const initialFormData: LeadFormData = {
   name: '',
@@ -69,6 +72,7 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
   const [formData, setFormData] = useState<LeadFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdditionalPhones, setShowAdditionalPhones] = useState(false);
+  const [phoneErrors, setPhoneErrors] = useState<Partial<Record<PhoneFieldName, string>>>({});
   const selectedStatusVisual = useMemo(() => {
     const selectedStatus = leadStatuses.find(status => status.name === formData.leadStatus);
     return getStatusVisual(selectedStatus?.color);
@@ -120,6 +124,7 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
             });
         }
         setIsSubmitting(false);
+        setPhoneErrors({});
     }
   }, [lead, isOpen, leadSources, leadStatuses, leadCategories, serviceTypes, currentUser, baseCountryOptions]);
 
@@ -128,7 +133,35 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (['phone', 'phone2', 'phone3', 'phone4'].includes(name)) {
+      setPhoneErrors(prev => ({ ...prev, [name]: undefined }));
+    }
   };
+
+  const validatePhones = () => {
+    const nextErrors: Partial<Record<PhoneFieldName, string>> = {};
+    const phoneFields: PhoneFieldName[] = ['phone', 'phone2', 'phone3', 'phone4'];
+
+    phoneFields.forEach((field) => {
+      const value = String(formData[field] || '').trim();
+      if (field === 'phone' && !value) {
+        nextErrors[field] = 'Phone Number 1 is required.';
+      } else if (value && !isValidPhoneNumber(value)) {
+        nextErrors[field] = PHONE_VALIDATION_MESSAGE;
+      }
+    });
+
+    setPhoneErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const getNormalizedLeadData = () => ({
+    ...formData,
+    phone: normalizePhoneNumber(formData.phone),
+    phone2: formData.phone2 ? normalizePhoneNumber(formData.phone2) : '',
+    phone3: formData.phone3 ? normalizePhoneNumber(formData.phone3) : '',
+    phone4: formData.phone4 ? normalizePhoneNumber(formData.phone4) : ''
+  });
   
   const handleClear = () => {
       setFormData({
@@ -149,9 +182,10 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (!validatePhones()) return;
     setIsSubmitting(true);
     try {
-        await onSave(formData);
+        await onSave(getNormalizedLeadData());
     } finally {
         setIsSubmitting(false);
     }
@@ -159,9 +193,10 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
   
   const handleSaveAndNewClick = async () => {
     if (isSubmitting) return;
+    if (!validatePhones()) return;
     setIsSubmitting(true);
     try {
-        await onSaveAndNew(formData);
+        await onSaveAndNew(getNormalizedLeadData());
         handleClear();
     } finally {
         setIsSubmitting(false);
@@ -195,7 +230,17 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
                 </div>
                 <div>
                   <label className="field-label">Phone Number 1 <span className="text-primary">*</span></label>
-                  <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="input-field" required />
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className={`input-field ${phoneErrors.phone ? 'input-field-error' : ''}`}
+                    required
+                    aria-invalid={!!phoneErrors.phone}
+                    placeholder="+91 98765 43210"
+                  />
+                  {phoneErrors.phone && <p className="field-error">{phoneErrors.phone}</p>}
                 </div>
                 <div>
                   <label className="field-label">Email Address</label>
@@ -321,15 +366,18 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
                     <>
                       <div>
                           <label className="field-label">Phone Number 2</label>
-                          <input type="tel" name="phone2" value={formData.phone2} onChange={handleChange} className="input-field" />
+                          <input type="tel" name="phone2" value={formData.phone2} onChange={handleChange} className={`input-field ${phoneErrors.phone2 ? 'input-field-error' : ''}`} aria-invalid={!!phoneErrors.phone2} placeholder="+91 98765 43210" />
+                          {phoneErrors.phone2 && <p className="field-error">{phoneErrors.phone2}</p>}
                       </div>
                       <div>
                           <label className="field-label">Phone Number 3</label>
-                          <input type="tel" name="phone3" value={formData.phone3} onChange={handleChange} className="input-field" />
+                          <input type="tel" name="phone3" value={formData.phone3} onChange={handleChange} className={`input-field ${phoneErrors.phone3 ? 'input-field-error' : ''}`} aria-invalid={!!phoneErrors.phone3} placeholder="+91 98765 43210" />
+                          {phoneErrors.phone3 && <p className="field-error">{phoneErrors.phone3}</p>}
                       </div>
                       <div>
                           <label className="field-label">Phone Number 4</label>
-                          <input type="tel" name="phone4" value={formData.phone4} onChange={handleChange} className="input-field" />
+                          <input type="tel" name="phone4" value={formData.phone4} onChange={handleChange} className={`input-field ${phoneErrors.phone4 ? 'input-field-error' : ''}`} aria-invalid={!!phoneErrors.phone4} placeholder="+91 98765 43210" />
+                          {phoneErrors.phone4 && <p className="field-error">{phoneErrors.phone4}</p>}
                       </div>
                     </>
                   )}
@@ -406,6 +454,21 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
             box-shadow: 0 0 0 4px rgba(196, 22, 28, 0.12);
             z-index: 10;
             position: relative;
+        }
+        .input-field-error {
+            border-color: #dc2626;
+            background-color: #fef2f2;
+        }
+        .input-field-error:focus {
+            border-color: #dc2626;
+            box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.14);
+        }
+        .field-error {
+            margin-top: 0.25rem;
+            color: #dc2626;
+            font-size: 0.68rem;
+            line-height: 0.9rem;
+            font-weight: 700;
         }
         .status-select-shell {
             display: flex;

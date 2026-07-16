@@ -2,6 +2,7 @@
 const db = require('../db');
 const { logAction } = require('../utils/logger');
 const { createNotification } = require('./notificationController');
+const { PHONE_VALIDATION_MESSAGE, normalizePhoneNumber, isValidPhoneNumber } = require('../utils/phoneValidation');
 
 let leadColumnsReady = false;
 
@@ -23,6 +24,28 @@ const toSqlDate = (input) => {
     const d = new Date(input);
     if (Number.isNaN(d.getTime())) return null;
     return d.toISOString().split('T')[0];
+};
+
+const validateAndNormalizeLeadPhones = (payload) => {
+    const fields = ['phone', 'phone2', 'phone3', 'phone4'];
+    const normalized = {};
+    const errors = [];
+
+    for (const field of fields) {
+        const raw = String(payload[field] ?? '').trim();
+        if (field === 'phone' && !raw) {
+            errors.push('Phone Number 1 is required');
+            continue;
+        }
+        if (raw && !isValidPhoneNumber(raw)) {
+            const label = field === 'phone' ? 'Phone Number 1' : `Phone Number ${field.replace('phone', '')}`;
+            errors.push(`${label} is invalid. ${PHONE_VALIDATION_MESSAGE}`);
+            continue;
+        }
+        normalized[field] = raw ? normalizePhoneNumber(raw) : null;
+    }
+
+    return { normalized, errors };
 };
 
 exports.getAllLeads = async (req, res) => {
@@ -61,6 +84,10 @@ exports.createLead = async (req, res) => {
     const p = req.body;
     const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
     const leadDate = toSqlDate(p.createdAt);
+    const phoneValidation = validateAndNormalizeLeadPhones(p);
+    if (phoneValidation.errors.length > 0) {
+        return res.status(400).json({ error: phoneValidation.errors.join('; ') });
+    }
     
     // Default assigned_to_id to current user if not provided and NOT super admin
     let assignedToId = (p.assignedToId === "" || p.assignedToId === undefined) ? null : p.assignedToId;
@@ -70,10 +97,10 @@ exports.createLead = async (req, res) => {
     
     const fields = [
         p.name ?? "",
-        p.phone ?? "",
-        p.phone2 ?? null,
-        p.phone3 ?? null,
-        p.phone4 ?? null,
+        phoneValidation.normalized.phone,
+        phoneValidation.normalized.phone2,
+        phoneValidation.normalized.phone3,
+        phoneValidation.normalized.phone4,
         p.email ?? null,
         p.service ?? null,
         p.leadType ?? null,
@@ -125,6 +152,10 @@ exports.createLead = async (req, res) => {
 exports.updateLead = async (req, res) => {
     const { id } = req.params;
     const p = req.body; 
+    const phoneValidation = validateAndNormalizeLeadPhones(p);
+    if (phoneValidation.errors.length > 0) {
+        return res.status(400).json({ error: phoneValidation.errors.join('; ') });
+    }
     
     try {
         await ensureLeadColumns();
@@ -139,10 +170,10 @@ exports.updateLead = async (req, res) => {
         // Map camelCase Frontend props to correct Database/Query fields
         const fields = [
             p.name ?? "",
-            p.phone ?? "",
-            p.phone2 ?? null,
-            p.phone3 ?? null,
-            p.phone4 ?? null,
+            phoneValidation.normalized.phone,
+            phoneValidation.normalized.phone2,
+            phoneValidation.normalized.phone3,
+            phoneValidation.normalized.phone4,
             p.email ?? null,
             p.service ?? null,
             p.leadType ?? null,
