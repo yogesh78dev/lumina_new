@@ -104,19 +104,27 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
   
   const renderCellContent = (lead: Lead, column: LeadTableColumn, index: number, isRotting: boolean) => {
     switch (column.key) {
-        case 'id_serial': return <td className="p-3 whitespace-nowrap text-gray-600 font-mono text-xs">{index + 1}</td>;
-        case 'createdAt': 
-            const dateObj = new Date(lead.createdAt);
+        case 'id_serial': return <td className="px-2 py-1.5 whitespace-nowrap text-gray-600 font-mono text-xs">{index + 1}</td>;
+        case 'leadDate':
             return (
-                <td className="p-3 whitespace-nowrap">
+                <td className="px-2 py-1.5 whitespace-nowrap">
+                    <div className="flex flex-col">
+                        <span className="text-gray-700 font-medium">{formatDateDDMMYYYY(lead.leadDate || lead.createdAt)}</span>
+                    </div>
+                </td>
+            );
+        case 'createdAt':
+            const createdDateObj = new Date(lead.createdAt);
+            return (
+                <td className="px-2 py-1.5 whitespace-nowrap">
                     <div className="flex flex-col">
                         <span className="text-gray-700 font-medium">{formatDateDDMMYYYY(lead.createdAt)}</span>
-                        <span className="text-[10px] text-gray-400">{dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-[10px] text-gray-400">{createdDateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                 </td>
             );
         case 'name': return (
-            <td className="p-3 whitespace-nowrap relative">
+            <td className="px-2 py-1.5 whitespace-nowrap relative">
                 <div className="flex items-center">
                     {isRotting && (
                         <div className="group/rotting relative mr-2">
@@ -136,9 +144,8 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
             const notesCount = lead.notesCount || 0;
             const latestNote = lead.latestNote || null;
             return (
-                <td className="p-3 min-w-[220px]">
-                    <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
+                <td className="px-2 py-1.5 min-w-[200px]">
+                    <div className="flex items-center gap-2">
                             <span 
                                 title={latestNote ? `Latest: ${latestNote}` : 'No remarks'} 
                                 className={`flex-shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full border ${notesCount > 0 ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}
@@ -151,22 +158,21 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
                                 onChange={(e) => handleQuickNoteChange(String(lead.id), e.target.value)}
                                 onKeyDown={(e) => handleQuickNoteSubmit(String(lead.id), e)}
                                 placeholder="Add remark & Enter..."
-                                className="w-full text-xs border border-gray-200 hover:border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary rounded px-2 py-1.5 bg-white/50 focus:bg-white transition-all outline-none placeholder-gray-400"
+                                className="w-full text-xs border border-gray-200 hover:border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary rounded px-2 py-1 bg-white/50 focus:bg-white transition-all outline-none placeholder-gray-400"
                             />
-                        </div>
-                        {latestNote && (
-                            <p className="text-[10px] text-gray-400 truncate max-w-[180px] pl-1" title={latestNote}>
-                                <i className="ri-chat-1-line mr-1"></i>{latestNote}
-                            </p>
-                        )}
                     </div>
+                    {latestNote && (
+                        <p className="text-[10px] text-gray-400 truncate max-w-[180px] pl-1" title={latestNote}>
+                            <i className="ri-chat-1-line mr-1"></i>{latestNote}
+                        </p>
+                    )}
                 </td>
             );
 
         case 'reminders': 
             return (
-                <td className="p-3 whitespace-nowrap text-center">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${lead.remindersCount ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-400'}`}>
+                <td className="px-2 py-1.5 whitespace-nowrap text-center">
+                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${lead.remindersCount ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-400'}`}>
                         {lead.remindersCount || 0}
                     </span>
                 </td>
@@ -175,7 +181,7 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
         case 'leadSource': 
             const sourceStyle = getSelectClass('source');
             return (
-            <td className="p-3 min-w-[140px]">
+            <td className="px-2 py-1.5 min-w-[132px]">
                 <select 
                     value={lead.leadSource} 
                     disabled={!canUpdateLeads} 
@@ -190,7 +196,7 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
         case 'assignedToId': 
             const isUnassigned = !lead.assignedToId;
             return (
-                <td className="p-3 min-w-[160px]">
+                <td className="px-2 py-1.5 min-w-[150px]">
                     <div className="relative">
                         <select 
                             value={lead.assignedToId || ''} 
@@ -210,7 +216,7 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
             const currentStatus = leadStatuses.find(status => status.name === lead.leadStatus);
             const statusVisual = getStatusVisual(currentStatus?.color);
             return (
-            <td className="p-3 min-w-[140px]">
+            <td className="px-2 py-1.5 min-w-[132px]">
                 <div
                     className="flex items-center w-full min-w-0 rounded-md border px-2 transition-colors"
                     style={{ borderColor: statusVisual.borderColor, backgroundColor: statusVisual.backgroundColor }}
@@ -244,7 +250,7 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
             const hasMorePhones = !!(lead.phone2 || lead.phone3 || lead.phone4);
             const additionalCount = [lead.phone2, lead.phone3, lead.phone4].filter(Boolean).length;
             return (
-                <td className="p-3 whitespace-nowrap">
+                <td className="px-2 py-1.5 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                         <span className="text-gray-700 font-medium">{lead.phone}</span>
                         {hasMorePhones && (
@@ -257,11 +263,11 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
                     </div>
                 </td>
             );
-        case 'email': return <td className="p-3 whitespace-nowrap"><span className="text-gray-600 italic text-xs">{lead.email || '-'}</span></td>;
+        case 'email': return <td className="px-2 py-1.5 whitespace-nowrap"><span className="text-gray-600 italic text-xs">{lead.email || '-'}</span></td>;
         case 'actions': return (
-            <td className="p-3 whitespace-nowrap min-w-[100px]">
+            <td className="px-2 py-1.5 whitespace-nowrap min-w-[96px]">
                 <div className="flex items-center gap-1">
-                    <Link to={`/leads/${lead.id}`} className="px-3 py-1 text-xs font-medium text-white bg-primary rounded-md hover:bg-primary/90">View</Link>
+                    <Link to={`/leads/${lead.id}`} className="px-2.5 py-0.5 text-xs font-medium text-white bg-primary rounded-md hover:bg-primary/90">View</Link>
                     {canDeleteLeads && (
                         <button 
                             onClick={() => handleDelete(lead)} 
@@ -274,7 +280,7 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
                 </div>
             </td>
         );
-        default: return <td className="p-3 whitespace-nowrap text-gray-600">{(lead as any)[column.key]}</td>;
+        default: return <td className="px-2 py-1.5 whitespace-nowrap text-gray-600">{(lead as any)[column.key]}</td>;
     }
   };
 
@@ -287,16 +293,103 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
 
   return (
     <div className="w-full h-full overflow-auto lead-table-scroll">
-      <table className="min-w-max w-full text-xs sm:text-sm">
+      <div className="md:hidden p-2 space-y-2">
+        {leads.map((lead, index) => {
+          const isRotting = isLeadRotting(lead);
+          const assignedUser = users.find(user => String(user.id) === String(lead.assignedToId));
+          const currentStatus = leadStatuses.find(status => status.name === lead.leadStatus);
+          const statusVisual = getStatusVisual(currentStatus?.color);
+          const notesCount = lead.notesCount || 0;
+          return (
+            <div key={lead.id} className={`rounded-xl border p-3 shadow-sm ${isRotting ? 'border-red-200 bg-red-50/70' : 'border-gray-200 bg-white'}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2 min-w-0">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={selectedIds.has(String(lead.id))}
+                    onChange={() => handleSelectRow(String(lead.id))}
+                  />
+                  <div className="min-w-0">
+                    <Link to={`/leads/${lead.id}`} className="block font-bold text-blue-600 truncate">
+                      {index + 1}. {lead.name}
+                    </Link>
+                    <p className="text-xs text-gray-500 truncate">{lead.phone}</p>
+                  </div>
+                </div>
+                <span
+                  className="flex-shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black"
+                  style={{ color: statusVisual.color, borderColor: statusVisual.borderColor, backgroundColor: statusVisual.backgroundColor }}
+                >
+                  {lead.leadStatus}
+                </span>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Lead Date</p>
+                  <p className="font-semibold text-gray-700">{formatDateDDMMYYYY(lead.leadDate || lead.createdAt)}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Source</p>
+                  <p className="font-semibold text-gray-700 truncate">{lead.leadSource || '-'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Country</p>
+                  <p className="font-semibold text-gray-700 truncate">{lead.country || '-'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Agent</p>
+                  <p className="font-semibold text-gray-700 truncate">{assignedUser ? capitalizeName(assignedUser.name) : 'Unassigned'}</p>
+                </div>
+              </div>
+
+              {lead.service && (
+                <p className="mt-2 text-xs text-gray-600 line-clamp-2">
+                  <span className="font-bold text-gray-500">Service:</span> {lead.service}
+                </p>
+              )}
+
+              <div className="mt-3 flex items-center gap-2">
+                <span className={`flex-shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full border ${notesCount > 0 ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                  {notesCount}
+                </span>
+                <input
+                  type="text"
+                  value={quickNoteInputs[String(lead.id)] || ''}
+                  onChange={(e) => handleQuickNoteChange(String(lead.id), e.target.value)}
+                  onKeyDown={(e) => handleQuickNoteSubmit(String(lead.id), e)}
+                  placeholder="Add remark & Enter..."
+                  className="min-w-0 flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <Link to={`/leads/${lead.id}`} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90">View</Link>
+                {canDeleteLeads && (
+                  <button
+                    onClick={() => handleDelete(lead)}
+                    className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <table className="hidden md:table min-w-max w-full text-xs sm:text-sm">
         <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
           <tr>
-            <th className="p-2 sm:p-3 w-4 bg-gray-50"><input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size > 0 && selectedIds.size === leads.length} /></th>
+            <th className="px-2 py-1.5 w-4 bg-gray-50"><input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size > 0 && selectedIds.size === leads.length} /></th>
             {visibleColumns.map(col => {
               const isSortable = !['id_serial', 'notes', 'reminders', 'actions'].includes(col.key);
               return (
                 <th 
                   key={col.key} 
-                  className={`p-2 sm:p-3 text-left font-semibold text-gray-600 whitespace-nowrap bg-gray-50 group ${isSortable ? 'cursor-pointer hover:bg-gray-100' : ''}`}
+                  className={`px-2 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap bg-gray-50 group ${isSortable ? 'cursor-pointer hover:bg-gray-100' : ''}`}
                   onClick={() => isSortable && requestSort(col.key as keyof Lead)}
                 >
                   <div className="flex items-center space-x-1">
@@ -323,7 +416,7 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, visibleColumns, selectedId
             
             return (
                 <tr key={lead.id} className={rowClass}>
-                <td className="p-2 sm:p-3 w-4"><input type="checkbox" checked={selectedIds.has(String(lead.id))} onChange={() => handleSelectRow(String(lead.id))} /></td>
+                <td className="px-2 py-1.5 w-4"><input type="checkbox" checked={selectedIds.has(String(lead.id))} onChange={() => handleSelectRow(String(lead.id))} /></td>
                 {visibleColumns.map(col => (
                     <React.Fragment key={`${lead.id}-${col.key}`}>
                         {renderCellContent(lead, col, index, isRotting)}

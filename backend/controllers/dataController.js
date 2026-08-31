@@ -250,10 +250,10 @@ exports.importLeads = async (req, res) => {
             // Merge and normalize phone values from all potential columns.
             // If `phone` contains multiple numbers, map them across phone1..phone4.
             const phoneParts = [
-                ...splitPhoneCandidates(lead.phone ?? lead['phone number'] ?? lead.mobile ?? lead['mobile number']),
-                ...splitPhoneCandidates(lead.phone2 ?? lead['phone 2'] ?? lead['phone number 2']),
-                ...splitPhoneCandidates(lead.phone3 ?? lead['phone 3'] ?? lead['phone number 3']),
-                ...splitPhoneCandidates(lead.phone4 ?? lead['phone 4'] ?? lead['phone number 4'])
+                ...splitPhoneCandidates(lead.phone ?? lead['phone number'] ?? lead['phone no'] ?? lead['phone no.'] ?? lead.mobile ?? lead['mobile number'] ?? lead['mobile no'] ?? lead['contact'] ?? lead['contact number'] ?? lead.whatsapp ?? lead['whatsapp number']),
+                ...splitPhoneCandidates(lead.phone2 ?? lead['phone 2'] ?? lead['phone number 2'] ?? lead['phone no 2']),
+                ...splitPhoneCandidates(lead.phone3 ?? lead['phone 3'] ?? lead['phone number 3'] ?? lead['phone no 3']),
+                ...splitPhoneCandidates(lead.phone4 ?? lead['phone 4'] ?? lead['phone number 4'] ?? lead['phone no 4'])
             ];
 
             const normalizedPhones = [];
@@ -273,7 +273,7 @@ exports.importLeads = async (req, res) => {
             const phone2 = normalizedPhones[1] || null;
             const phone3 = normalizedPhones[2] || null;
             const phone4 = normalizedPhones[3] || null;
-            if (!phone) {
+            if (!phone && phoneParts.length === 0) {
                 rowErrors.push('Phone is required');
             }
             if (invalidPhones.length > 0) {
@@ -364,8 +364,8 @@ exports.importLeads = async (req, res) => {
                 lead.date ||
                 null
             );
-            const createdAt = parseImportLeadDate(createdAtInput);
-            if (createdAt === 'INVALID') {
+            const leadDate = parseImportLeadDate(createdAtInput);
+            if (leadDate === 'INVALID') {
                 rowErrors.push(`Invalid Date "${createdAtInput}" (use DD-MM-YYYY, DD/MM/YYYY, or DD-MMM-YYYY, e.g. 01-06-2026 or 1/May/2026)`);
             }
 
@@ -375,6 +375,7 @@ exports.importLeads = async (req, res) => {
             }
 
             rowsToInsert.push({
+                rowNo,
                 name: rawName,
                 phone,
                 phone2,
@@ -388,7 +389,7 @@ exports.importLeads = async (req, res) => {
                 leadSource: finalLeadSource,
                 leadStatus: finalLeadStatus,
                 assignedToId,
-                createdAt,
+                leadDate,
                 rowRemark
             });
         }
@@ -404,8 +405,8 @@ exports.importLeads = async (req, res) => {
 
         for (const row of rowsToInsert) {
             const [result] = await connection.execute(
-                `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, lead_type, lead_category, country, lead_source, lead_status, assigned_to_id, created_at, last_activity_at) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))`,
+                `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, lead_type, lead_category, country, lead_source, lead_status, assigned_to_id, lead_date, created_by, last_activity_at) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
                 [
                     row.name,
                     row.phone,
@@ -420,8 +421,8 @@ exports.importLeads = async (req, res) => {
                     row.leadSource,
                     row.leadStatus,
                     row.assignedToId || null,
-                    row.createdAt,
-                    row.createdAt
+                    row.leadDate,
+                    req.user.id
                 ]
             );
 

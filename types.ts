@@ -115,7 +115,10 @@ export interface Lead {
   documents: LeadDocument[];
   companyName?: string;
   location?: string;
+  leadDate?: string;
   createdAt: string;
+  createdById?: string | number;
+  createdByName?: string;
   assignedToId?: string | number;
   lastActivityAt?: string; 
   // Activity counts for immediate UI feedback in lists

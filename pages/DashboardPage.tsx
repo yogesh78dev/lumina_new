@@ -10,11 +10,50 @@ import PageContainer from '../components/layout/PageContainer';
 // Access the global Chart object from the script tag in index.html
 declare const Chart: any;
 
+const getRecordDateOnly = (dateValue?: string) => {
+  if (!dateValue) return '';
+  return String(dateValue).slice(0, 10);
+};
+
+const isDateWithinRange = (dateValue: string | undefined, fromDate: string, toDate: string) => {
+  const dateOnly = getRecordDateOnly(dateValue);
+  if (!dateOnly) return false;
+  if (fromDate && dateOnly < fromDate) return false;
+  if (toDate && dateOnly > toDate) return false;
+  return true;
+};
+
+const getDateDaysAgo = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
+};
+
+const isUnassignedValue = (value: unknown) => {
+  const normalizedValue = String(value ?? '').trim().toLowerCase();
+  return !normalizedValue || normalizedValue === '0' || normalizedValue === 'null' || normalizedValue === 'undefined';
+};
+
+const normalizeStatusName = (statusName?: string) => (
+  String(statusName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+);
+
+const toMoneyNumber = (value: unknown) => {
+  const normalized = Number(String(value ?? 0).replace(/,/g, ''));
+  return Number.isFinite(normalized) ? normalized : 0;
+};
+
 const DashboardPage: React.FC = () => {
   const { leads, customers, invoices, currentUser, leadReminders, leadStatuses, leadSources, users, openLeadModal, openInvoiceModal, openUserModal } = useCrm();
   const [timeFilter, setTimeFilter] = useState('all');
   const [agentFilter, setAgentFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   
   const leadStatusChartRef = useRef<HTMLCanvasElement>(null);
   const leadSourceChartRef = useRef<HTMLCanvasElement>(null);
@@ -39,42 +78,48 @@ const DashboardPage: React.FC = () => {
   };
 
   const filteredData = useMemo(() => {
-    const now = new Date();
-    const timeLimit = new Date();
+    let fromDateLimit = '';
     let applyTimeFilter = true;
+    const applyCustomDateRange = Boolean(fromDate || toDate);
 
-    if (timeFilter === '7') {
-      timeLimit.setDate(now.getDate() - 7);
+    if (applyCustomDateRange) {
+      applyTimeFilter = false;
+    } else if (timeFilter === '7') {
+      fromDateLimit = getDateDaysAgo(7);
     } else if (timeFilter === '30') {
-      timeLimit.setDate(now.getDate() - 30);
+      fromDateLimit = getDateDaysAgo(30);
     } else if (timeFilter === '90') {
-      timeLimit.setDate(now.getDate() - 90);
+      fromDateLimit = getDateDaysAgo(90);
     } else {
       applyTimeFilter = false;
     }
 
     const filteredLeads = leads.filter(lead => {
-      const isAfterTimeLimit = applyTimeFilter ? new Date(lead.createdAt) >= timeLimit : true;
-      const matchesAgent = agentFilter === 'all' || (agentFilter === 'unassigned' ? (!lead.assignedToId || Number(lead.assignedToId) === 0) : lead.assignedToId === agentFilter);
+      const dashboardDate = lead.createdAt;
+      const isAfterTimeLimit = applyTimeFilter ? isDateWithinRange(dashboardDate, fromDateLimit, '') : true;
+      const isWithinCustomRange = applyCustomDateRange ? isDateWithinRange(dashboardDate, fromDate, toDate) : true;
+      const matchesAgent = agentFilter === 'all' || (agentFilter === 'unassigned' ? isUnassignedValue(lead.assignedToId) : String(lead.assignedToId) === String(agentFilter));
       const matchesSource = sourceFilter === 'all' || lead.leadSource === sourceFilter;
-      return isAfterTimeLimit && matchesAgent && matchesSource;
+      return isAfterTimeLimit && isWithinCustomRange && matchesAgent && matchesSource;
     });
 
     const filteredCustomers = customers.filter(customer => {
-      const isAfterTimeLimit = applyTimeFilter ? new Date(customer.closeDate) >= timeLimit : true;
-      const matchesAgent = agentFilter === 'all' || customer.saleById === agentFilter;
-      return isAfterTimeLimit && matchesAgent;
+      const isAfterTimeLimit = applyTimeFilter ? isDateWithinRange(customer.closeDate, fromDateLimit, '') : true;
+      const isWithinCustomRange = applyCustomDateRange ? isDateWithinRange(customer.closeDate, fromDate, toDate) : true;
+      const matchesAgent = agentFilter === 'all' || (agentFilter === 'unassigned' ? false : String(customer.saleById) === String(agentFilter));
+      return isAfterTimeLimit && isWithinCustomRange && matchesAgent;
     });
 
     const filteredInvoices = invoices.filter(invoice => {
-      const isAfterTimeLimit = applyTimeFilter ? new Date(invoice.issuedDate) >= timeLimit : true;
+      const isAfterTimeLimit = applyTimeFilter ? isDateWithinRange(invoice.issuedDate, fromDateLimit, '') : true;
       const customer = customers.find(c => c.id === invoice.customerId);
-      const matchesAgent = agentFilter === 'all' || (customer && customer.saleById === agentFilter);
-      return isAfterTimeLimit && matchesAgent;
+      const isWithinCustomRange = applyCustomDateRange ? isDateWithinRange(invoice.issuedDate, fromDate, toDate) : true;
+      const matchesAgent = agentFilter === 'all' || (agentFilter === 'unassigned' ? false : (customer && String(customer.saleById) === String(agentFilter)));
+      return isAfterTimeLimit && isWithinCustomRange && matchesAgent;
     });
 
     return { filteredLeads, filteredInvoices, filteredCustomers };
-  }, [leads, invoices, customers, timeFilter, agentFilter, sourceFilter]);
+  }, [leads, invoices, customers, timeFilter, agentFilter, sourceFilter, fromDate, toDate]);
 
 
   useEffect(() => {
@@ -90,7 +135,7 @@ const DashboardPage: React.FC = () => {
     if (leadStatusChartRef.current) {
         const leadCountsByStatus = leadStatuses.map(status => ({
             name: status.name,
-            count: filteredData.filteredLeads.filter(lead => lead.leadStatus === status.name).length,
+            count: filteredData.filteredLeads.filter(lead => normalizeStatusName(lead.leadStatus) === normalizeStatusName(status.name)).length,
             color: status.color || '#2563eb'
         }));
 
@@ -184,7 +229,7 @@ const DashboardPage: React.FC = () => {
                 const invDate = new Date(inv.issuedDate);
                 return inv.status === InvoiceStatus.PAID && invDate.toLocaleString('default', { month: 'short' }) === m.month && invDate.getFullYear() === m.year;
             })
-            .reduce((sum, inv) => sum + inv.amount, 0);
+            .reduce((sum, inv) => sum + toMoneyNumber(inv.amount), 0);
         });
 
         const ctx = revenueChartRef.current.getContext('2d');
@@ -237,13 +282,13 @@ const DashboardPage: React.FC = () => {
   if (!currentUser) return null;
 
   // Stats calculation
-  const newLeadsCount = filteredData.filteredLeads.filter(l => l.leadStatus === 'New Lead').length;
-  const followUpCount = filteredData.filteredLeads.filter(l => l.leadStatus === 'Follow-up').length;
-  const unassignedLeadsCount = leads.filter(l => !l.assignedToId || Number(l.assignedToId) === 0).length;
+  const newLeadsCount = filteredData.filteredLeads.filter(l => normalizeStatusName(l.leadStatus) === 'new lead').length;
+  const followUpCount = filteredData.filteredLeads.filter(l => normalizeStatusName(l.leadStatus) === 'follow up').length;
+  const unassignedLeadsCount = filteredData.filteredLeads.filter(l => isUnassignedValue(l.assignedToId)).length;
   const totalCustomers = filteredData.filteredCustomers.length;
   const totalRevenue = filteredData.filteredInvoices
     .filter(i => i.status === InvoiceStatus.PAID)
-    .reduce((sum, i) => sum + i.amount, 0);
+    .reduce((sum, i) => sum + toMoneyNumber(i.amount), 0);
   
   // Tasks needing attention (Due Today or Overdue)
   const todaysTasks = useMemo(() => {
@@ -252,24 +297,22 @@ const DashboardPage: React.FC = () => {
 
       return leadReminders.filter(r => {
           if(r.isCompleted) return false;
-          // Filter by agent if selected
-          if(agentFilter !== 'all') {
-              const lead = leads.find(l => l.id === r.leadId);
-              if(lead?.assignedToId !== agentFilter) return false;
-          }
+          const lead = leads.find(l => String(l.id) === String(r.leadId));
+          if (!lead) return false;
+          if (!filteredData.filteredLeads.some(filteredLead => String(filteredLead.id) === String(lead.id))) return false;
           const dueDate = new Date(r.dueDate);
           return dueDate <= today;
       }).sort((a,b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 15);
-  }, [leadReminders, leads, agentFilter]);
+  }, [leadReminders, leads, filteredData.filteredLeads]);
 
   // Agent Performance Logic
   const agentPerformance = useMemo(() => {
     return users.map(user => {
         // Filter leads based on the current View (which is already scoped by Context)
         // If current user is Agent, filteredData.filteredLeads only contains THEIR leads.
-        const userLeads = filteredData.filteredLeads.filter(l => l.assignedToId === user.id);
+        const userLeads = filteredData.filteredLeads.filter(l => String(l.assignedToId) === String(user.id));
         const total = userLeads.length;
-        const won = userLeads.filter(l => l.leadStatus === 'Won').length;
+        const won = userLeads.filter(l => normalizeStatusName(l.leadStatus) === 'won').length;
         const conversion = total > 0 ? Math.round((won / total) * 100) : 0;
         return { ...user, total, won, conversion };
     })
@@ -290,12 +333,28 @@ const DashboardPage: React.FC = () => {
     });
   };
 
+  const handleDateRangeChange = (field: 'from' | 'to', value: string) => {
+    if (field === 'from') {
+      setFromDate(value);
+    } else {
+      setToDate(value);
+    }
+    if (value) {
+      setTimeFilter('all');
+    }
+  };
+
+  const clearDateRange = () => {
+    setFromDate('');
+    setToDate('');
+  };
+
   return (
     <PageContainer>
       <div className="space-y-6 max-w-[1600px] mx-auto">
         
         {/* 1. Header Section */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-5">
             <div className="flex flex-col gap-2 flex-grow">
                 <div className="flex items-center gap-2">
                     <h1 className="text-2xl font-bold text-gray-800">
@@ -306,53 +365,101 @@ const DashboardPage: React.FC = () => {
                 <p className="text-gray-500 font-medium">Here's what's happening in your agency today.</p>
             </div>
 
-            <div className="flex flex-col items-end gap-6 min-w-fit w-full xl:w-auto">
+            <div className="w-full xl:w-auto xl:max-w-[980px]">
                 {/* Filters */}
-                <div className="flex gap-3 w-full xl:w-auto flex-wrap sm:flex-nowrap">
-                    <div className="relative group flex-grow sm:w-40">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-hover:text-primary transition-colors">
-                            <i className="ri-calendar-line text-lg"></i>
-                        </div>
-                        <select value={timeFilter} onChange={(e) => setTimeFilter(e.target.value)} className="w-full appearance-none bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg focus:ring-1 focus:ring-primary focus:border-primary block pl-10 pr-8 py-2.5 cursor-pointer hover:border-gray-300 transition-colors shadow-sm">
-                            <option value="all">All Time</option>
-                            <option value="30">Last 30 Days</option>
-                            <option value="7">Last 7 Days</option>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-2 shadow-inner">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative group flex h-10 min-w-[190px] flex-1 items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-colors hover:border-primary/30 sm:flex-none">
+                        <span className="flex h-full items-center gap-1.5 border-r border-slate-100 bg-slate-50 px-3 text-[11px] font-black uppercase tracking-wide text-slate-500">
+                            <i className="ri-calendar-line text-sm text-slate-400"></i>
+                            Range
+                        </span>
+                        <select id="dashboard-time-filter" value={timeFilter} onChange={(e) => setTimeFilter(e.target.value)} className="h-full min-w-0 flex-1 appearance-none bg-white px-3 pr-8 text-sm font-semibold text-slate-700 outline-none cursor-pointer">
+                          <option value="all">All Time</option>
+                          <option value="30">Last 30 Days</option>
+                          <option value="7">Last 7 Days</option>
                         </select>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                            <i className="ri-arrow-down-s-line text-lg"></i>
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                          <i className="ri-arrow-down-s-line text-lg"></i>
                         </div>
                     </div>
 
+                    <div className="group flex h-10 min-w-[180px] flex-1 items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-colors hover:border-primary/30 sm:flex-none">
+                        <span className="flex h-full items-center gap-1.5 border-r border-slate-100 bg-slate-50 px-3 text-[11px] font-black uppercase tracking-wide text-slate-500">
+                            <i className="ri-calendar-event-line text-sm text-slate-400"></i>
+                            From
+                        </span>
+                        <input
+                            id="dashboard-from-date"
+                            type="date"
+                            value={fromDate}
+                            max={toDate || undefined}
+                            onChange={(e) => handleDateRangeChange('from', e.target.value)}
+                            className="h-full min-w-0 flex-1 bg-white px-3 text-sm font-semibold text-slate-700 outline-none"
+                            title="From Date"
+                        />
+                    </div>
+
+                    <div className="group flex h-10 min-w-[180px] flex-1 items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-colors hover:border-primary/30 sm:flex-none">
+                        <span className="flex h-full items-center gap-1.5 border-r border-slate-100 bg-slate-50 px-3 text-[11px] font-black uppercase tracking-wide text-slate-500">
+                            <i className="ri-calendar-check-line text-sm text-slate-400"></i>
+                            To
+                        </span>
+                        <input
+                            id="dashboard-to-date"
+                            type="date"
+                            value={toDate}
+                            min={fromDate || undefined}
+                            onChange={(e) => handleDateRangeChange('to', e.target.value)}
+                            className="h-full min-w-0 flex-1 bg-white px-3 text-sm font-semibold text-slate-700 outline-none"
+                            title="To Date"
+                        />
+                    </div>
+
                     {isSuperAdmin && (
-                        <div className="relative group flex-grow sm:w-48">
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-hover:text-primary transition-colors">
-                                <i className="ri-user-line text-lg"></i>
-                            </div>
-                            <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} className="w-full appearance-none bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg focus:ring-1 focus:ring-primary focus:border-primary block pl-10 pr-8 py-2.5 cursor-pointer hover:border-gray-300 transition-colors shadow-sm">
+                        <div className="relative group flex h-10 min-w-[190px] flex-1 items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-colors hover:border-primary/30 sm:flex-none">
+                            <span className="flex h-full items-center gap-1.5 border-r border-slate-100 bg-slate-50 px-3 text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                <i className="ri-user-line text-sm text-slate-400"></i>
+                                Agent
+                            </span>
+                            <select id="dashboard-agent-filter" value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} className="h-full min-w-0 flex-1 appearance-none bg-white px-3 pr-8 text-sm font-semibold text-slate-700 outline-none cursor-pointer">
                                 <option value="all">All Agents</option>
                                 <option value="unassigned">Unassigned</option>
                                 {users.map(u => <option key={u.id} value={u.id}>{capitalizeName(u.name)}</option>)}
                             </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                 <i className="ri-arrow-down-s-line text-lg"></i>
                             </div>
                         </div>
                     )}
 
                     {isSuperAdmin && (
-                        <div className="relative group flex-grow sm:w-48">
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-hover:text-primary transition-colors">
-                                <i className="ri-links-line text-lg"></i>
-                            </div>
-                            <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="w-full appearance-none bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg focus:ring-1 focus:ring-primary focus:border-primary block pl-10 pr-8 py-2.5 cursor-pointer hover:border-gray-300 transition-colors shadow-sm">
+                        <div className="relative group flex h-10 min-w-[190px] flex-1 items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-colors hover:border-primary/30 sm:flex-none">
+                            <span className="flex h-full items-center gap-1.5 border-r border-slate-100 bg-slate-50 px-3 text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                <i className="ri-links-line text-sm text-slate-400"></i>
+                                Source
+                            </span>
+                            <select id="dashboard-source-filter" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="h-full min-w-0 flex-1 appearance-none bg-white px-3 pr-8 text-sm font-semibold text-slate-700 outline-none cursor-pointer">
                                 <option value="all">All Sources</option>
                                 {leadSources.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                             </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                 <i className="ri-arrow-down-s-line text-lg"></i>
                             </div>
                         </div>
                     )}
+
+                    {(fromDate || toDate) && (
+                        <button
+                            type="button"
+                            onClick={clearDateRange}
+                            className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 text-xs font-black uppercase tracking-wide text-primary transition-colors hover:bg-primary/10 sm:flex-none"
+                        >
+                            <i className="ri-close-circle-line text-sm"></i>
+                            Clear
+                        </button>
+                    )}
+                  </div>
                 </div>
             </div>
         </div>

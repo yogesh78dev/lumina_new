@@ -15,6 +15,10 @@ export const formatDateDDMMYYYY = (value?: string | null): string => {
         const [y, m, d] = raw.split('-');
         return `${d}-${m}-${y}`;
     }
+    if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
+        const [y, m, d] = raw.slice(0, 10).split('-');
+        return `${d}-${m}-${y}`;
+    }
     if (/^\d{4}-\d{2}-\d{2}\s/.test(raw)) {
         const [y, m, d] = raw.slice(0, 10).split('-');
         return `${d}-${m}-${y}`;

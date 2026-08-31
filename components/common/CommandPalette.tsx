@@ -107,7 +107,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
     }
     // 3. Leads
     leads.forEach(lead => {
-      const dateTokens = getDateSearchTokens(lead.createdAt);
+      const dateTokens = getDateSearchTokens(lead.leadDate || lead.createdAt);
       const leadSearchValues = [
         lead.name || '',
         lead.phone || '',

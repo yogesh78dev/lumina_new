@@ -19,7 +19,7 @@ const ImportDataContent: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [file, setFile] = useState<File | null>(null);
     const [defaults, setDefaults] = useState({
-        assignedToId: String(users[0]?.id || ''),
+        assignedToId: '',
         leadStatus: leadStatuses[0]?.name || '',
         leadType: serviceTypes[0]?.name || '',
         service: '',
@@ -46,7 +46,6 @@ const ImportDataContent: React.FC = () => {
     useEffect(() => {
         setDefaults(prev => ({
             ...prev,
-            assignedToId: prev.assignedToId || String(users[0]?.id || ''),
             leadStatus: prev.leadStatus || leadStatuses[0]?.name || '',
             leadType: prev.leadType || serviceTypes[0]?.name || '',
             leadCategory: prev.leadCategory || leadCategories[0]?.name || '',
@@ -65,9 +64,9 @@ const ImportDataContent: React.FC = () => {
             return stringVal;
         };
         const headers = ['Name', 'Phone', 'Email', 'Service', 'Lead Type', 'Lead Category', 'Country', 'Date', 'Assign To Agent', 'Lead Source', 'Notes/Remark'];
-        const sampleRow1 = ['Jane Smith', toExcelText('919500391807|971528514124'), 'jane.smith@example.com', 'UK Visitor Visa Assistance', 'Visa', 'International Package', 'India', toExcelText('15-01-2026'), 'Aarav Patel', 'Google', 'Interested client. Call tomorrow.'];
-        const sampleRow2 = ['John Doe', toExcelText('919500391807,971528514124'), 'john.doe@example.com', 'Goa family trip', 'Holiday Package', 'Domestic Package', 'India', toExcelText('16-01-2026'), 'Riya Shah', 'Website Inquiry', 'Asked for pricing details.'];
-        const sampleRow3 = ['Aman Verma', toExcelText('919500391807'), 'aman.verma@example.com', 'Canada study consultation', 'Visa', 'Study Visa', 'United Arab Emirates', toExcelText('17-01-2026'), 'Kabir Mehta', 'IVR', 'Follow up next week.'];
+        const sampleRow1 = ['Jane Smith', toExcelText('919500391807|971528514124'), 'jane.smith@example.com', 'UK Visitor Visa Assistance', 'Visa', 'International Package', 'India', '15-01-2026', 'Aarav Patel', 'Google', 'Interested client. Call tomorrow.'];
+        const sampleRow2 = ['John Doe', toExcelText('919500391807,971528514124'), 'john.doe@example.com', 'Goa family trip', 'Holiday Package', 'Domestic Package', 'India', '16-01-2026', 'Riya Shah', 'Website Inquiry', 'Asked for pricing details.'];
+        const sampleRow3 = ['Aman Verma', toExcelText('919500391807'), 'aman.verma@example.com', 'Canada study consultation', 'Visa', 'Study Visa', 'United Arab Emirates', '17-01-2026', 'Kabir Mehta', 'IVR', 'Follow up next week.'];
         const csvContent = [
             headers.map(toCsvCell).join(','),
             sampleRow1.map(toCsvCell).join(','),
@@ -146,8 +145,8 @@ const ImportDataContent: React.FC = () => {
 
                         <div>
                             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Assign To Agent</label>
-                            <select name="assignedToId" value={defaults.assignedToId} onChange={handleDefaultsChange} className="input-field" required>
-                                <option value="">Select User</option>
+                            <select name="assignedToId" value={defaults.assignedToId} onChange={handleDefaultsChange} className="input-field">
+                                <option value="">Unassigned</option>
                                 {users.map(user => <option key={user.id} value={String(user.id)}>{capitalizeName(user.name)}</option>)}
                             </select>
                         </div>

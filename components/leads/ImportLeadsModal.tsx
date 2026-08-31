@@ -21,7 +21,7 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
   const errorPanelRef = useRef<HTMLDivElement>(null);
 
   const [defaults, setDefaults] = useState({
-    assignedToId: String(users[0]?.id || ''),
+    assignedToId: '',
     leadStatus: leadStatuses[0]?.name || '',
     leadSource: leadSources[0]?.name || '',
     leadCategory: leadCategories[0]?.name || '',
@@ -73,7 +73,6 @@ const ImportLeadsModal: React.FC<ImportLeadsModalProps> = ({ isOpen, onClose }) 
   useEffect(() => {
     setDefaults(prev => ({
       ...prev,
-      assignedToId: prev.assignedToId || String(users[0]?.id || ''),
       leadStatus: prev.leadStatus || leadStatuses[0]?.name || '',
       leadSource: prev.leadSource || leadSources[0]?.name || '',
       leadCategory: prev.leadCategory || leadCategories[0]?.name || '',

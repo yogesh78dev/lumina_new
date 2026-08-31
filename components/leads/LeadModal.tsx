@@ -17,6 +17,7 @@ interface LeadModalProps {
 
 interface LeadFormData extends Omit<Lead, 'id' | 'createdAt'> {
     createdAt?: string;
+    leadDate?: string;
 }
 
 type PhoneFieldName = 'phone' | 'phone2' | 'phone3' | 'phone4';
@@ -42,6 +43,7 @@ const initialFormData: LeadFormData = {
   documents: [],
   assignedToId: '',
   createdAt: '',
+  leadDate: '',
 };
 
 const toInputDateValue = (value?: string) => {
@@ -101,7 +103,8 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
                 phone3: lead.phone3 || '',
                 phone4: lead.phone4 || '',
                 remarks: lead.latestNote || '',
-                createdAt: toInputDateValue(lead.createdAt)
+                createdAt: lead.createdAt,
+                leadDate: toInputDateValue(lead.leadDate || lead.createdAt)
             });
             if (lead.phone2 || lead.phone3 || lead.phone4) {
                 setShowAdditionalPhones(true);
@@ -120,7 +123,7 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
                 // applicationStatus: applicationStatuses[0]?.name || '',
                 // passportStatus: passportStatuses[0]?.name || 'With Client',
                 assignedToId: isSuperAdmin ? '' : (currentUser?.id || ''),
-                createdAt: new Date().toISOString().split('T')[0]
+                leadDate: new Date().toISOString().split('T')[0]
             });
         }
         setIsSubmitting(false);
@@ -175,7 +178,7 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
         remarks: '',
         // applicationStatus: applicationStatuses[0]?.name || '',
         // passportStatus: passportStatuses[0]?.name || 'With Client',
-        createdAt: new Date().toISOString().split('T')[0]
+        leadDate: new Date().toISOString().split('T')[0]
       });
   }
 
@@ -345,8 +348,8 @@ const LeadModal: React.FC<LeadModalProps> = ({ isOpen, onClose, onSave, onSaveAn
                     <label className="field-label">Lead Date</label>
                     <input 
                         type="date" 
-                        name="createdAt" 
-                        value={formData.createdAt} 
+                        name="leadDate" 
+                        value={formData.leadDate || ''} 
                         onChange={handleChange} 
                         className="input-field"
                     />

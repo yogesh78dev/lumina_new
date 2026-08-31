@@ -17,9 +17,16 @@ const normalizePhoneNumber = (value) => {
 const isValidPhoneNumber = (value) => {
     const raw = String(value ?? '').trim();
     if (!raw) return false;
-    if (!/^\+?[\d\s().-]+$/.test(raw)) return false;
 
     const normalized = normalizePhoneNumber(raw);
+    if (!normalized) return false;
+    if (!/^\+?\d+$/.test(normalized)) return false;
+
+    // Do not accept scientific notation here. Once Excel has rounded it, the
+    // original phone digits cannot be recovered safely.
+    const isAllowedRawFormat = /^\+?[\d\s().-]+$/.test(raw);
+    if (!isAllowedRawFormat) return false;
+
     const digits = normalized.replace(/\D/g, '');
     if (digits.length < 7 || digits.length > 15) return false;
     if (/^(\d)\1+$/.test(digits)) return false;
@@ -32,4 +39,3 @@ module.exports = {
     normalizePhoneNumber,
     isValidPhoneNumber
 };
-

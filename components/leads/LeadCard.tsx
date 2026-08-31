@@ -68,7 +68,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, onClick }) => {
                   {lead.name}
               </h4>
               <p className="text-[10px] text-gray-400 mt-0.5 font-mono">
-                  {formatDateDDMMYYYY(lead.createdAt)}
+                  {formatDateDDMMYYYY(lead.leadDate || lead.createdAt)}
               </p>
           </div>
           

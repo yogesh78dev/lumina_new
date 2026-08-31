@@ -643,16 +643,67 @@ export const CrmProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const csvRows = lines.map(line => parseCsvLine(line));
         leadsArray = mapRowsToLeads(csvRows);
       } else if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
-        const { read, utils } = await import('xlsx');
+        const { read, utils, SSF } = await import('xlsx');
         const data = await file.arrayBuffer();
-        const workbook = read(data, { type: 'array', raw: false });
+        const workbook = read(data, { type: 'array', raw: true, cellDates: false });
         const firstSheetName = workbook.SheetNames[0];
         if (!firstSheetName) {
           throw new Error('Excel file has no sheet. Please upload a valid file.');
         }
         const firstSheet = workbook.Sheets[firstSheetName];
-        const rows = (utils.sheet_to_json(firstSheet, { header: 1, raw: false, defval: '' }) as any[][])
-          .map(row => row.map(cell => String(cell ?? '').trim()));
+        const range = utils.decode_range(firstSheet['!ref'] || 'A1:A1');
+        const excelRows: string[][] = [];
+        const headerValues: string[] = [];
+
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cell = firstSheet[utils.encode_cell({ r: range.s.r, c: col })];
+          headerValues[col - range.s.c] = String(cell?.w ?? cell?.v ?? '').replace(/^\uFEFF/, '').trim();
+        }
+
+        const isPhoneColumn = (header: string) => {
+          const normalizedHeader = header.trim().toLowerCase();
+          return (
+            normalizedHeader === 'phone' ||
+            normalizedHeader.includes('phone') ||
+            normalizedHeader.includes('mobile') ||
+            normalizedHeader.includes('contact') ||
+            normalizedHeader.includes('whatsapp')
+          );
+        };
+
+        const isDateColumn = (header: string) => {
+          const normalizedHeader = header.trim().toLowerCase();
+          return ['date', 'lead date', 'created at', 'created_at', 'createdat'].includes(normalizedHeader);
+        };
+
+        for (let rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex++) {
+          const row: string[] = [];
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            const header = headerValues[col - range.s.c] || '';
+            const cell = firstSheet[utils.encode_cell({ r: rowIndex, c: col })];
+            let value = '';
+
+            if (cell) {
+              if (rowIndex > range.s.r && isPhoneColumn(header) && typeof cell.v === 'number') {
+                value = Number.isInteger(cell.v)
+                  ? cell.v.toFixed(0)
+                  : cell.v.toLocaleString('fullwide', { useGrouping: false });
+              } else if (rowIndex > range.s.r && isDateColumn(header) && typeof cell.v === 'number') {
+                const parsedDate = SSF.parse_date_code(cell.v);
+                value = parsedDate
+                  ? `${String(parsedDate.d).padStart(2, '0')}-${String(parsedDate.m).padStart(2, '0')}-${parsedDate.y}`
+                  : String(cell.w ?? cell.v ?? '');
+              } else {
+                value = String(cell.w ?? cell.v ?? '');
+              }
+            }
+
+            row.push(value.trim());
+          }
+          excelRows.push(row);
+        }
+
+        const rows = excelRows;
         leadsArray = mapRowsToLeads(rows as string[][]);
       } else {
         throw new Error('Unsupported file format. Please upload CSV, XLSX, or XLS.');

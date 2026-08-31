@@ -21,6 +21,10 @@ const ensureLeadColumns = async () => {
 
 const toSqlDate = (input) => {
     if (!input) return null;
+    const raw = String(input).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+        return raw.slice(0, 10);
+    }
     const d = new Date(input);
     if (Number.isNaN(d.getTime())) return null;
     return d.toISOString().split('T')[0];
@@ -57,11 +61,13 @@ exports.getAllLeads = async (req, res) => {
                 l.id, l.name, l.phone, l.phone2, l.phone3, l.phone4, l.email, l.service, l.lead_type AS leadType, l.lead_category AS leadCategory, l.country, 
                 l.lead_source AS leadSource, l.lead_status AS leadStatus,
                 l.company_name AS companyName, l.location, l.assigned_to_id AS assignedToId, 
-                l.last_activity_at AS lastActivityAt, l.created_at AS createdAt,
+                l.last_activity_at AS lastActivityAt, l.created_at AS createdAt, DATE_FORMAT(l.lead_date, '%Y-%m-%d') AS leadDate,
+                l.created_by AS createdById, creator.name AS createdByName,
                 (SELECT COUNT(*) FROM lead_notes WHERE lead_id = l.id) AS notesCount,
                 (SELECT COUNT(*) FROM lead_reminders WHERE lead_id = l.id AND is_completed = 0) AS remindersCount,
                 (SELECT content FROM lead_notes WHERE lead_id = l.id ORDER BY created_at DESC LIMIT 1) AS latestNote
             FROM leads l
+            LEFT JOIN users creator ON creator.id = l.created_by
         `;
         
         const params = [];
@@ -83,7 +89,7 @@ exports.getAllLeads = async (req, res) => {
 exports.createLead = async (req, res) => {
     const p = req.body;
     const isSuperAdmin = (req.user.role || '').toLowerCase() === 'super admin';
-    const leadDate = toSqlDate(p.createdAt);
+    const leadDate = toSqlDate(p.leadDate ?? p.createdAt);
     const phoneValidation = validateAndNormalizeLeadPhones(p);
     if (phoneValidation.errors.length > 0) {
         return res.status(400).json({ error: phoneValidation.errors.join('; ') });
@@ -111,14 +117,16 @@ exports.createLead = async (req, res) => {
         p.companyName ?? null,
         p.location ?? null,
         assignedToId,
-        leadDate
+        leadDate,
+        req.user.id
     ];
 
     try {
         await ensureLeadColumns();
+
         const [result] = await db.execute(
-            `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, lead_type, lead_category, country, lead_source, lead_status, company_name, location, assigned_to_id, created_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
+            `INSERT INTO leads (name, phone, phone2, phone3, phone4, email, service, lead_type, lead_category, country, lead_source, lead_status, company_name, location, assigned_to_id, lead_date, created_by) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             fields
         );
 
@@ -184,7 +192,7 @@ exports.updateLead = async (req, res) => {
             p.companyName ?? null,
             p.location ?? null,
             (p.assignedToId === "" || p.assignedToId === undefined) ? null : p.assignedToId,
-            toSqlDate(p.createdAt),
+            toSqlDate(p.leadDate ?? p.createdAt),
             id
         ];
         // console.log("fields",fields);
@@ -194,7 +202,7 @@ exports.updateLead = async (req, res) => {
             `UPDATE leads SET 
                 name=?, phone=?, phone2=?, phone3=?, phone4=?, email=?, service=?, lead_type=?, lead_category=?, country=?, 
                 lead_source=?, lead_status=?, company_name=?, location=?, 
-                assigned_to_id=?, created_at=COALESCE(?, created_at), last_activity_at=CURRENT_TIMESTAMP 
+                assigned_to_id=?, lead_date=COALESCE(?, lead_date), last_activity_at=CURRENT_TIMESTAMP 
              WHERE id=?`,
             fields
         );

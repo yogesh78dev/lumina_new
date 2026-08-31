@@ -1,14 +1,14 @@
 
 import React from 'react';
 import { Lead } from '../../types';
-import { useCrm } from '../../hooks/useCrm';
-import { capitalizeName, formatDateDDMMYYYY } from '../../utils/formatters';
+import { formatDateDDMMYYYY } from '../../utils/formatters';
 
 interface LeadProfileSidebarProps {
     lead: Lead;
 }
 
 const LeadProfileSidebar: React.FC<LeadProfileSidebarProps> = ({ lead }) => {
+    const createdByLabel = lead.createdByName || (lead.createdById ? `User #${lead.createdById}` : 'Not captured (old lead)');
     
     const DetailRow = ({ icon, label, value, isLink, href, copyable }: { icon: string, label: string, value?: string, isLink?: boolean, href?: string, copyable?: boolean }) => (
         <div className="flex items-start py-3 border-b border-gray-50 last:border-0 group hover:bg-gray-50/50 transition-colors px-2 rounded-md">
@@ -90,8 +90,16 @@ const LeadProfileSidebar: React.FC<LeadProfileSidebarProps> = ({ lead }) => {
                         <span className="font-mono text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">{String(lead.id).split('-')[0]}...</span>
                     </div>
                     <div className="flex justify-between items-center py-2 text-xs text-gray-500 border-b border-gray-50 last:border-0">
-                        <span>Created On</span>
+                        <span>Lead Date</span>
+                        <span className="font-medium text-gray-700">{formatDateDDMMYYYY(lead.leadDate || lead.createdAt)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 text-xs text-gray-500 border-b border-gray-50 last:border-0">
+                        <span>Created Date</span>
                         <span className="font-medium text-gray-700">{formatDateDDMMYYYY(lead.createdAt)}</span>
+                    </div>
+                    <div className="flex justify-between items-center gap-3 py-2 text-xs text-gray-500 border-b border-gray-50 last:border-0">
+                        <span>Created By</span>
+                        <span className="font-medium text-gray-700 text-right truncate">{createdByLabel}</span>
                     </div>
                     <div className="flex justify-between items-center py-2 text-xs text-gray-500 border-b border-gray-50 last:border-0">
                         <span>Last Activity</span>

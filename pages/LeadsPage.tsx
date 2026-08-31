@@ -22,9 +22,84 @@ import { getStatusVisual } from '../utils/statusColors';
 
 import { allCountries } from '../utils/countries';
 
+const LEAD_STATUS_TAB_ORDER = ['New Lead', 'Follow Up', 'Under Process', 'No Response', 'Won', 'Close'];
+const LEADS_PAGE_SIZE_STORAGE_KEY = 'crm_leadsItemsPerPage';
+const DEFAULT_LEADS_PAGE_SIZE = 100;
+
+const normalizeLeadStatusName = (statusName: string) => (
+    statusName
+        .trim()
+        .toLowerCase()
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ')
+);
+
+const LEAD_STATUS_CANONICAL_LABELS: Record<string, string> = {
+    'new lead': 'New Lead',
+    'follow up': 'Follow Up',
+    'followup': 'Follow Up',
+    'under process': 'Under Process',
+    'underprocess': 'Under Process',
+    'under processing': 'Under Process',
+    'no response': 'No Response',
+    'noresponse': 'No Response',
+    'won': 'Won',
+    'close': 'Close',
+    'closed': 'Close',
+    'lost': 'Close'
+};
+
+const getCanonicalLeadStatusLabel = (statusName: string) => {
+    const normalizedStatusName = normalizeLeadStatusName(statusName);
+    return LEAD_STATUS_CANONICAL_LABELS[normalizedStatusName] || statusName.trim();
+};
+
+const getLeadStatusTabOrder = (statusName: string) => {
+    const canonicalStatusName = getCanonicalLeadStatusLabel(statusName).toLowerCase();
+    const index = LEAD_STATUS_TAB_ORDER.findIndex(status => status.toLowerCase() === canonicalStatusName);
+    return index === -1 ? LEAD_STATUS_TAB_ORDER.length : index;
+};
+
+const isExactCanonicalLeadStatus = (statusName: string) => {
+    const trimmedStatusName = statusName.trim().toLowerCase();
+    const canonicalStatusName = getCanonicalLeadStatusLabel(statusName).toLowerCase();
+    return trimmedStatusName === canonicalStatusName;
+};
+
+const getLeadFilterDateOnly = (dateValue?: string | null) => {
+    if (!dateValue) return '';
+    const raw = String(dateValue).trim();
+
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+        return raw.slice(0, 10);
+    }
+
+    if (/^\d{2}-\d{2}-\d{4}$/.test(raw) || /^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+        const [day, month, year] = raw.split(/[-/]/);
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return '';
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const getInitialLeadsPageSize = () => {
+    try {
+        const stored = Number(localStorage.getItem(LEADS_PAGE_SIZE_STORAGE_KEY));
+        return [10, 20, 50, 100].includes(stored) ? stored : DEFAULT_LEADS_PAGE_SIZE;
+    } catch {
+        return DEFAULT_LEADS_PAGE_SIZE;
+    }
+};
+
 const ALL_LEAD_COLUMNS: LeadTableColumn[] = [
     { key: 'id_serial', label: 'ID' },
-    { key: 'createdAt', label: 'Date' },
+    { key: 'leadDate', label: 'Lead Date' },
+    { key: 'createdAt', label: 'Created Date' },
     { key: 'name', label: 'First Name' },
     { key: 'phone', label: 'Phone Number' },
     { key: 'email', label: 'Email' },
@@ -44,7 +119,7 @@ const ALL_LEAD_COLUMNS: LeadTableColumn[] = [
 
 const DEFAULT_VISIBLE_COLUMNS: LeadTableColumn[] = [
     { key: 'id_serial', label: 'ID' },
-    { key: 'createdAt', label: 'Date' },
+    { key: 'leadDate', label: 'Lead Date' },
     { key: 'name', label: 'First Name' },
     { key: 'phone', label: 'Phone Number' },
     { key: 'email', label: 'Email' },
@@ -64,9 +139,11 @@ const getInitialVisibleColumns = (): LeadTableColumn[] => {
         const stored = localStorage.getItem('crm_visibleLeadColumns');
         if (stored) {
             const storedKeys = JSON.parse(stored) as string[];
+            const migratedKeys = storedKeys.map(key => key === 'createdAt' ? 'leadDate' : key);
             const userVisible = ALL_LEAD_COLUMNS.filter(col => storedKeys.includes(col.key));
+            const migratedVisible = ALL_LEAD_COLUMNS.filter(col => migratedKeys.includes(col.key));
             const essentialKeys = new Set(['id_serial', 'name', 'actions']);
-            const finalColumns = [...userVisible];
+            const finalColumns = [...(migratedVisible.length ? migratedVisible : userVisible)];
             DEFAULT_VISIBLE_COLUMNS.forEach(defaultCol => {
                 if(essentialKeys.has(defaultCol.key) && !finalColumns.find(c => c.key === defaultCol.key)) {
                     finalColumns.push(defaultCol);
@@ -116,11 +193,31 @@ const LeadsPage: React.FC = () => {
       { key: 'All', name: 'All Leads', color: '#334155' },
       { key: 'Unassigned', name: 'Unassigned', color: '#ef4444' }
     ];
-    const dynamicStatusTabs = leadStatuses.map(status => ({
-      key: status.name,
-      name: status.name,
-      color: status.color || '#2563eb'
-    }));
+    const dynamicStatusTabs = [...leadStatuses]
+      .map((status, originalIndex) => ({ status, originalIndex }))
+      .sort((a, b) => {
+        const aOrder = getLeadStatusTabOrder(a.status.name);
+        const bOrder = getLeadStatusTabOrder(b.status.name);
+        const bothAreCustom = aOrder === LEAD_STATUS_TAB_ORDER.length && bOrder === LEAD_STATUS_TAB_ORDER.length;
+        if (bothAreCustom) return a.status.name.localeCompare(b.status.name);
+        if (aOrder === bOrder) {
+          const exactDiff = Number(isExactCanonicalLeadStatus(b.status.name)) - Number(isExactCanonicalLeadStatus(a.status.name));
+          return exactDiff || a.originalIndex - b.originalIndex;
+        }
+        return aOrder - bOrder;
+      })
+      .filter(({ status }, index, sortedStatuses) => {
+        const canonicalLabel = getCanonicalLeadStatusLabel(status.name).toLowerCase();
+        return sortedStatuses.findIndex(item => getCanonicalLeadStatusLabel(item.status.name).toLowerCase() === canonicalLabel) === index;
+      })
+      .map(({ status }) => {
+        const canonicalLabel = getCanonicalLeadStatusLabel(status.name);
+        return {
+          key: status.name,
+          name: canonicalLabel,
+          color: status.color || '#2563eb'
+        };
+      });
     return [...baseTabs, ...dynamicStatusTabs];
   }, [leadStatuses]);
 
@@ -159,7 +256,7 @@ const LeadsPage: React.FC = () => {
     }
     
     return leadsToFilter.filter(lead => {
-      const leadDate = lead.createdAt ? String(lead.createdAt).slice(0, 10) : '';
+      const leadDate = getLeadFilterDateOnly(lead.leadDate || lead.createdAt);
       return (
         (
           agentFilter === 'all' ||
@@ -192,7 +289,7 @@ const LeadsPage: React.FC = () => {
     startIndex,
     endIndex,
     totalItems
-  } = usePagination(sortedLeads, 10);
+  } = usePagination(sortedLeads, getInitialLeadsPageSize());
 
   useEffect(() => {
     if (view === 'kanban') {
@@ -228,6 +325,12 @@ const LeadsPage: React.FC = () => {
       setIsColumnsModalOpen(false);
   };
 
+  const handleItemsPerPageChange = (size: number) => {
+      setItemsPerPage(size);
+      setCurrentPage(1);
+      localStorage.setItem(LEADS_PAGE_SIZE_STORAGE_KEY, String(size));
+  };
+
   const handleExport = () => {
     fireToast('info', 'Starting export...');
     const toExcelText = (value: string) => `="${String(value).replace(/"/g, '""')}"`;
@@ -249,6 +352,10 @@ const LeadsPage: React.FC = () => {
             else val = (lead as any)[col.key] || '';
 
             const stringVal = String(val ?? '');
+            if (col.key === 'leadDate') {
+                const dateOnly = String(lead.leadDate || lead.createdAt || '').slice(0, 10);
+                return dateOnly ? toCsvCell(toExcelText(dateOnly)) : '';
+            }
             if (col.key === 'createdAt') {
                 const dateOnly = stringVal ? stringVal.slice(0, 10) : '';
                 return dateOnly ? toCsvCell(toExcelText(dateOnly)) : '';
@@ -326,7 +433,7 @@ const LeadsPage: React.FC = () => {
 
   const tabClass = (status: string) => {
     const isActive = activeStatus === status;
-    return `whitespace-nowrap pb-3 px-2 border-b-2 font-bold text-sm transition-colors duration-200 rounded-t-md ${
+    return `whitespace-nowrap pb-2 px-2 border-b-2 font-bold text-xs sm:text-sm transition-colors duration-200 rounded-t-md ${
       isActive
         ? ''
         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -340,22 +447,22 @@ const LeadsPage: React.FC = () => {
     
   return (
     <>
-    <div className="flex flex-col h-full min-h-0 overflow-hidden">
-      <div className="p-3 sm:p-4 lg:p-6 pb-0 flex-none space-y-3 sm:space-y-4 bg-gray-50 min-w-0">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between items-stretch sm:items-center">
-              <h2 className="text-xl sm:text-2xl font-semibold text-gray-800">Leads <span className="text-gray-400 font-medium text-lg sm:text-xl">({totalItems})</span></h2>
+    <div className="flex flex-col h-full min-h-0 overflow-y-auto xl:overflow-hidden">
+      <div className="p-2 sm:p-3 lg:p-4 pb-0 flex-none space-y-2 bg-gray-50 min-w-0">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-between items-stretch sm:items-center">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Leads <span className="text-gray-400 font-medium text-base sm:text-lg">({totalItems})</span></h2>
               {permissions.can('leads', 'create') && (
-                  <button onClick={() => openLeadModal(null)} className="w-full sm:w-auto justify-center px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/90 flex items-center shadow-sm transition-all hover:shadow-md">
+                  <button onClick={() => openLeadModal(null)} className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/90 flex items-center shadow-sm transition-all hover:shadow-md">
                       <i className="ri-add-line mr-2"></i>
                       Create Lead
                   </button>
               )}
           </div>
 
-          <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-200 min-w-0">
+          <div className="bg-white p-2 sm:p-3 rounded-lg shadow-sm border border-gray-200 min-w-0">
              {view === 'table' && (
-                <div className="border-b border-gray-200 mb-4 overflow-x-auto lead-tabs-scroll">
-                    <nav className="-mb-px flex w-max min-w-full gap-x-2 sm:gap-x-4">
+                <div className="border-b border-gray-200 mb-2 overflow-x-auto lead-tabs-scroll">
+                    <nav className="-mb-px flex w-max min-w-full gap-x-1.5 sm:gap-x-3">
                         {statusTabs.map(tab => {
                           const visual = getStatusVisual(tab.color);
                           const count = tab.key === 'All'
@@ -375,7 +482,7 @@ const LeadsPage: React.FC = () => {
                               backgroundColor: visual.backgroundColor
                             } : undefined}
                           >
-                            <span className="inline-flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 sm:gap-2">
                               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: visual.color }}></span>
                               {tab.name}
                               <span
@@ -396,13 +503,13 @@ const LeadsPage: React.FC = () => {
                 </div>
             )}
 
-            <div className="flex flex-col 2xl:flex-row gap-3 lg:gap-4 justify-between items-stretch 2xl:items-center min-w-0">
-                <div className="flex-grow flex flex-col lg:flex-row gap-3 w-full 2xl:w-auto min-w-0">
+            <div className="flex flex-col 2xl:flex-row gap-2 lg:gap-3 justify-between items-stretch 2xl:items-center min-w-0">
+                <div className="flex-grow flex flex-col lg:flex-row gap-2 w-full 2xl:w-auto min-w-0">
                     <SearchInput
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search by name, phone, service or email..."
-                        className="w-full lg:w-72 flex-shrink-0"
+                        className="w-full lg:w-64 flex-shrink-0"
                     />
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 w-full min-w-0">
                         {isSuperAdmin && (
@@ -421,7 +528,7 @@ const LeadsPage: React.FC = () => {
                                 <option key={source.id} value={source.name}>{source.name}</option>
                             ))}
                         </select>
-                        <div className="w-full h-[42px] min-w-0">
+                        <div className="w-full h-[38px] min-w-0">
                             <SearchableDropdown
                                 options={countryFilterOptions}
                                 value={countryFilter}
@@ -440,8 +547,8 @@ const LeadsPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap 2xl:flex-nowrap items-center gap-2 w-full 2xl:w-auto justify-start 2xl:justify-end">
-                    <div className="p-1 bg-gray-100 rounded-md flex items-center mr-1">
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap 2xl:flex-nowrap items-stretch sm:items-center gap-2 w-full 2xl:w-auto justify-start 2xl:justify-end">
+                    <div className="p-1 bg-gray-100 rounded-md flex items-center justify-center sm:justify-start mr-0 sm:mr-1">
                         <Tooltip content="Table View">
                             <button onClick={() => setView('table')} className={`p-1.5 rounded transition-all ${view === 'table' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><i className="ri-list-check text-lg"></i></button>
                         </Tooltip>
@@ -456,7 +563,7 @@ const LeadsPage: React.FC = () => {
                         <Tooltip content="Import Leads from CSV">
                             <button 
                                 onClick={() => setIsImportModalOpen(true)} 
-                                className="w-full sm:w-auto justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 hover:text-primary transition-all flex items-center shadow-sm"
+                                className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 hover:text-primary transition-all flex items-center shadow-sm"
                             >
                                 <i className="ri-upload-cloud-2-line text-lg mr-2 text-blue-500"></i>
                                 <span>Import</span>
@@ -467,7 +574,7 @@ const LeadsPage: React.FC = () => {
                     <Tooltip content="Export Leads to CSV">
                         <button 
                             onClick={handleExport} 
-                            className="w-full sm:w-auto justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 hover:text-primary transition-all flex items-center shadow-sm"
+                            className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 hover:text-primary transition-all flex items-center shadow-sm"
                         >
                             <i className="ri-download-cloud-2-line text-lg mr-2 text-green-500"></i>
                             <span className="hidden sm:inline">Export</span>
@@ -477,20 +584,20 @@ const LeadsPage: React.FC = () => {
                     <Tooltip content="Manage Columns">
                         <button 
                             onClick={() => setIsColumnsModalOpen(true)} 
-                            className="w-full sm:w-auto justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center shadow-sm"
+                            className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center shadow-sm"
                         >
                             <i className="ri-layout-column-line text-lg"></i>
                         </button>
                     </Tooltip>
 
-                    <div className="relative" ref={actionsMenuRef}>
+                    <div className="relative min-w-0" ref={actionsMenuRef}>
                         <Tooltip content="More Actions">
-                            <button onClick={() => setIsActionsMenuOpen(p => !p)} className="w-full sm:w-auto justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center shadow-sm">
+                            <button onClick={() => setIsActionsMenuOpen(p => !p)} className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-all flex items-center shadow-sm">
                                 <i className="ri-more-fill text-lg"></i>
                             </button>
                         </Tooltip>
                          {isActionsMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-30 border border-gray-100 transform origin-top-right">
+                            <div className="absolute right-0 mt-2 w-48 max-w-[calc(100vw-2rem)] bg-white rounded-md shadow-lg py-1 z-30 border border-gray-100 transform origin-top-right">
                                 <button onClick={() => { setIsHistoryModalOpen(true); setIsActionsMenuOpen(false); }} className="w-full text-left flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors">
                                     <i className="ri-history-line mr-2 text-gray-400"></i>Import History
                                 </button>
@@ -502,7 +609,7 @@ const LeadsPage: React.FC = () => {
           </div>
 
           {view === 'table' && selectedIds.size > 0 && (
-              <div className="p-3 bg-indigo-50 rounded-md border border-indigo-200 flex flex-col lg:flex-row lg:flex-wrap items-stretch lg:items-center gap-3 animate-fade-in-up shadow-sm min-w-0">
+              <div className="p-2 sm:p-3 bg-indigo-50 rounded-md border border-indigo-200 flex flex-col lg:flex-row lg:flex-wrap items-stretch lg:items-center gap-2 sm:gap-3 animate-fade-in-up shadow-sm min-w-0">
                 <span className="text-sm font-bold text-indigo-700 bg-white px-2 py-1 rounded border border-indigo-200 shadow-sm">{selectedIds.size} Selected</span>
                 <div className="hidden lg:block h-6 w-px bg-indigo-200 mx-2"></div>
                 
@@ -574,7 +681,7 @@ const LeadsPage: React.FC = () => {
           )}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 lg:p-6 pt-2">
+      <div className="flex-1 min-h-[420px] xl:min-h-0 overflow-hidden p-2 sm:p-3 lg:p-4 pt-2">
           {view === 'table' ? (
             <div className="h-full min-h-0 flex flex-col bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
                 <div className="flex-1 overflow-auto rounded-t-lg relative">
@@ -592,7 +699,7 @@ const LeadsPage: React.FC = () => {
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
                 itemsPerPage={itemsPerPage}
-                onItemsPerPageChange={setItemsPerPage}
+                onItemsPerPageChange={handleItemsPerPageChange}
                 totalItems={totalItems}
                 startIndex={startIndex}
                 endIndex={endIndex}
